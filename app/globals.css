@@ -88,6 +88,7 @@ body {
 
 .wa-header-gradient {
   background: linear-gradient(90deg, var(--taller-green), var(--mech-orange));
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
 }
 
 .message-bubble-user {
@@ -110,6 +111,7 @@ body {
 .wa-input-bar {
   background: var(--wa-bg-sidebar);
   box-shadow: 0 -2px 14px rgba(17, 24, 28, 0.08);
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 .typing-dots span {

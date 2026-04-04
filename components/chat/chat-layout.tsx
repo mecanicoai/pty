@@ -100,14 +100,6 @@ export function ChatLayout() {
     ];
   }, [activeSession?.messages, language]);
 
-  const quickReplies = useMemo(
-    () =>
-      language === "es"
-        ? ["Subir foto del problema", "Diagnosticar ruido extraño", "Revisar batería", "Código de error OBD"]
-        : ["Upload problem photo", "Diagnose strange noise", "Check battery", "OBD error code"],
-    [language]
-  );
-
   useEffect(() => {
     const savedDark = localStorage.getItem(PREF_KEYS.darkMode);
     const savedLanguage = localStorage.getItem(PREF_KEYS.language);
@@ -379,7 +371,6 @@ export function ChatLayout() {
               messages={displayedMessages}
               loading={loadingReply}
               disabled={!installReady}
-              quickReplies={quickReplies}
               onSend={handleSend}
               onNewThread={handleNewThread}
               onOpenHistory={() => setHistoryOpen(true)}

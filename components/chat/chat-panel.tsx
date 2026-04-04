@@ -12,7 +12,6 @@ interface Props {
   messages: UiMessage[];
   loading: boolean;
   disabled?: boolean;
-  quickReplies: string[];
   onSend: (payload: { message: string; attachments: ChatAttachment[] }) => Promise<void>;
   onNewThread: () => Promise<void>;
   onOpenHistory: () => void;
@@ -30,7 +29,6 @@ export function ChatPanel({
   messages,
   loading,
   disabled = false,
-  quickReplies,
   onSend,
   onNewThread,
   onOpenHistory,
@@ -162,29 +160,7 @@ export function ChatPanel({
 
       <MessageList messages={messages} loading={loading} />
 
-      <div className="chat-scroll flex gap-2 overflow-x-auto px-4 pb-3 pt-2">
-        {quickReplies.map((reply) => (
-          <button
-            key={reply}
-            type="button"
-            onClick={() => {
-              if (!disabled) {
-                void onSend({ message: reply, attachments: [] });
-              }
-            }}
-            disabled={disabled}
-            className="whitespace-nowrap rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-5 py-2.5 text-sm font-medium text-[var(--wa-control-text)] shadow-sm transition hover:bg-[var(--wa-control-bg-soft)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {reply}
-          </button>
-        ))}
-      </div>
-
-      <Composer
-        onSend={onSend}
-        disabled={loading || disabled}
-        language={language}
-      />
+      <Composer onSend={onSend} disabled={loading || disabled} language={language} />
     </section>
   );
 }
