@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --taller-green: #179c63;
+  --mech-orange: #e8822d;
+  --shop-white: #f8f5f1;
+  --deep-charcoal: #1f2933;
+  --wa-bg-app: #f5f1eb;
+  --wa-bg-panel: #efe8df;
+  --wa-bg-sidebar: #ffffff;
+  --wa-bg-chat: #f6f1ea;
+  --wa-bubble-out: #d9f3df;
+  --wa-bubble-in: #ffffff;
+  --wa-text-primary: #1f2933;
+  --wa-text-secondary: #5f6c76;
+  --wa-text-meta: #7c8792;
+  --wa-divider: #e2d8cb;
+  --wa-header: #159d61;
+  --wa-header-2: #e97a22;
+  --wa-accent: #159d61;
+  --wa-control-bg: #fffdf9;
+  --wa-control-bg-soft: #f3ede5;
+  --wa-control-text: #22313a;
+  --wa-control-placeholder: #7a8791;
+  --wa-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --wa-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.dark {
+  --wa-bg-app: #11181d;
+  --wa-bg-panel: #182228;
+  --wa-bg-sidebar: #142027;
+  --wa-bg-chat: #10191f;
+  --wa-bubble-out: #1e6a49;
+  --wa-bubble-in: #223038;
+  --wa-text-primary: #eef4f6;
+  --wa-text-secondary: #b2c0c8;
+  --wa-text-meta: #94a2ab;
+  --wa-divider: #2d3b43;
+  --wa-control-bg: #1b2a31;
+  --wa-control-bg-soft: #213038;
+  --wa-control-text: #eff4f6;
+  --wa-control-placeholder: #9eb0ba;
+  --wa-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.24);
+  --wa-shadow-md: 0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--wa-bg-app);
+  color: var(--wa-text-primary);
+  font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.wa-app-shell {
+  background: var(--wa-bg-app);
+}
+
+.wa-phone-shell {
+  background: var(--wa-bg-sidebar);
+}
+
+.wa-chat-surface {
+  background: linear-gradient(180deg, #faf6f1 0%, #f2ece4 100%);
+  background-image:
+    radial-gradient(circle at 25% 25%, rgba(21, 157, 97, 0.024) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(233, 122, 34, 0.024) 0%, transparent 50%);
+}
+
+.dark .wa-chat-surface {
+  background: #10191f;
+  background-image:
+    radial-gradient(circle at 25% 25%, rgba(21, 157, 97, 0.045) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(233, 122, 34, 0.04) 0%, transparent 50%);
+}
+
+.wa-header-gradient {
+  background: linear-gradient(90deg, var(--taller-green), var(--mech-orange));
+}
+
+.message-bubble-user {
+  background: var(--wa-bubble-out);
+  border-radius: 18px 18px 4px 18px;
+  box-shadow: var(--wa-shadow-sm);
+}
+
+.message-bubble-bot {
+  background: var(--wa-bubble-in);
+  border-radius: 18px 18px 18px 4px;
+  border-left: 4px solid var(--taller-green);
+  box-shadow: var(--wa-shadow-sm);
+}
+
+.dark .message-bubble-user {
+  color: #ffffff;
+}
+
+.wa-input-bar {
+  background: var(--wa-bg-sidebar);
+  box-shadow: 0 -2px 14px rgba(17, 24, 28, 0.08);
+}
+
+.typing-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 9999px;
+  background: var(--taller-green);
+  animation: typing-bounce 1.2s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 300ms;
+  margin-right: 0;
+}
+
+@keyframes typing-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+}
+
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(28, 28, 28, 0.18);
+  border-radius: 9999px;
+}

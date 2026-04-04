@@ -1,0 +1,1812 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b8f72" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Mecánico AI</title>
+  <meta
+    name="description"
+    content="Mecánico AI: asistente de diagnóstico automotriz en español latino para mecánicos."
+  />
+  <link rel="icon" type="image/png" href="mecanico-logo.png" />
+  <script>
+    window.tailwind = {
+      config: {
+        theme: {
+          extend: {
+            colors: {
+              mechanic: "#10b981",
+              "mechanic-dark": "#0f8c63",
+              "wa-shell": "#111b21",
+              "wa-chat-dark": "#0b141a",
+              "wa-header-dark": "#202c33",
+              "wa-input-dark": "#2a3942",
+              "wa-user": "#005c4b",
+              "wa-bubble-in": "#202c33",
+              "wa-meta-dark": "#8696a0"
+            },
+            boxShadow: {
+              app: "0 20px 60px rgba(15, 23, 42, 0.28)"
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+  <style>
+    :root {
+      color-scheme: light;
+      --wa-bg-app: #efeae2;
+      --wa-bg-panel: #f0f2f5;
+      --wa-bg-sidebar: #ffffff;
+      --wa-bg-chat: #efeae2;
+      --wa-bubble-out: #d9fdd3;
+      --wa-bubble-in: #ffffff;
+      --wa-text-primary: #111b21;
+      --wa-text-secondary: #667781;
+      --wa-text-meta: #8696a0;
+      --wa-border: #e9edef;
+      --wa-divider: #d1d7db;
+      --wa-accent: #00a651;
+      --wa-accent-dark: #008069;
+      --mech-orange: #ff6b00;
+      --mech-red: #d32f2f;
+      --mech-lime: #8bc34a;
+      --wa-link: #53bdeb;
+      --wa-hover: rgba(17, 27, 33, 0.06);
+      --wa-active: rgba(0, 168, 132, 0.14);
+      --wa-shadow-sm: 0 1px 0 rgba(11, 20, 26, 0.08);
+      --wa-shadow-md: 0 2px 5px rgba(11, 20, 26, 0.08);
+      --wa-avatar-bg: #dfe5e7;
+      --wa-avatar-fg: #667781;
+      --wa-chip-bg: rgba(225, 245, 254, 0.92);
+    }
+
+    body {
+      font-family: Roboto, "Segoe UI", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--wa-text-primary);
+      background: var(--wa-bg-app);
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      background: var(--wa-bg-sidebar);
+    }
+
+    .wa-header-shadow {
+      box-shadow: var(--wa-shadow-sm);
+    }
+
+    .brand-header {
+      background: linear-gradient(90deg, var(--wa-accent-dark), var(--mech-orange));
+      color: #ffffff;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .brand-subtitle {
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .brand-icon {
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .workshop-bg {
+      background-color: var(--wa-bg-chat);
+      background-image: radial-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(11, 20, 26, 0.2);
+      border-radius: 6px;
+    }
+
+    .bubble-tail-left::before,
+    .bubble-tail-right::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 12px;
+      background: inherit;
+    }
+
+    .bubble-tail-left::before {
+      left: -4px;
+      background: linear-gradient(135deg, var(--wa-bubble-in) 50%, transparent 50%);
+    }
+
+    .bubble-tail-right::before {
+      right: -4px;
+      background: linear-gradient(225deg, var(--wa-bubble-out) 50%, transparent 50%);
+    }
+
+    .message-enter {
+      animation: messageIn 0.18s ease-out;
+    }
+
+    .dot {
+      animation: blink 1.25s infinite ease-in-out;
+    }
+
+    .dot:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .dot:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    .screen-hidden {
+      display: none;
+    }
+
+    .date-chip {
+      background: var(--wa-chip-bg);
+      color: var(--wa-text-secondary);
+      box-shadow: var(--wa-shadow-sm);
+    }
+
+    .history-item {
+      transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .history-item:hover,
+    .history-item:active {
+      background: var(--wa-hover);
+    }
+
+    .quick-action {
+      min-height: 48px;
+      transition: background-color 140ms ease, transform 140ms ease;
+    }
+
+    .quick-action:hover {
+      transform: translateY(-1px);
+    }
+
+    .desktop-frame {
+      background: var(--wa-bg-app);
+    }
+
+    @media (min-width: 900px) {
+      .desktop-frame {
+        background:
+          linear-gradient(180deg, var(--wa-accent-dark) 0, var(--wa-accent-dark) 130px, var(--wa-bg-app) 130px);
+      }
+
+      .app-shell {
+        max-width: 420px !important;
+        width: min(100%, 420px);
+        height: min(94vh, 920px) !important;
+      }
+    }
+
+    @keyframes messageIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes blink {
+      0%, 80%, 100% {
+        opacity: 0.25;
+        transform: translateY(0);
+      }
+      40% {
+        opacity: 1;
+        transform: translateY(-2px);
+      }
+    }
+  </style>
+</head>
+<body class="text-slate-800">
+  <div class="desktop-frame min-h-screen px-0 sm:flex sm:items-center sm:justify-center sm:p-6">
+    <main
+      class="app-shell flex h-screen w-full flex-col overflow-hidden bg-white sm:h-[92vh] sm:max-h-[900px] sm:max-w-[420px] sm:rounded-[24px] sm:shadow-app"
+    >
+      <section id="chatScreen" class="flex min-h-0 flex-1 flex-col bg-[var(--wa-bg-chat)]">
+        <header class="wa-header-shadow brand-header px-4 py-[10px]">
+          <div class="flex items-center gap-1.5">
+            <div class="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-full bg-white/20 p-[2px]">
+              <img src="mecanico-logo.png" alt="Logo Mecánico AI" class="h-full w-full rounded-full object-cover" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <div id="chatTitle" class="truncate text-[16px] font-medium leading-tight">Mecánico AI</div>
+              <div id="chatSubtitle" class="brand-subtitle truncate text-[13px]">En línea • Ayudando en el taller</div>
+            </div>
+            <button
+              id="refreshChatBtn"
+              type="button"
+              class="brand-icon flex h-[44px] w-[44px] items-center justify-center rounded-full transition hover:bg-white/10"
+              title="Actualizar"
+              aria-label="Actualizar"
+            >
+              <i class="fa-solid fa-rotate-right text-sm"></i>
+            </button>
+            <button
+              id="voiceToggleBtn"
+              type="button"
+              class="brand-icon flex h-[44px] w-[44px] items-center justify-center rounded-full transition hover:bg-white/10"
+              title="Voz activada"
+              aria-label="Voz activada"
+            >
+              <i id="voiceToggleIcon" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+            <button
+              id="newChatBtn"
+              type="button"
+              class="brand-icon flex h-[44px] w-[44px] items-center justify-center rounded-full transition hover:bg-white/10"
+              title="Nuevo chat"
+              aria-label="Nuevo chat"
+            >
+              <i class="fa-solid fa-pen-to-square text-sm"></i>
+            </button>
+          </div>
+        </header>
+
+        <section class="workshop-bg relative flex min-h-0 flex-1 flex-col">
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/5 to-transparent"></div>
+          <div id="chatMessages" class="chat-scroll flex-1 space-y-1.5 overflow-y-auto px-[6%] py-3"></div>
+          <div id="attachmentPreview" class="hidden border-t border-[var(--wa-border)] bg-[var(--wa-bg-panel)] px-3 py-2"></div>
+
+          <div class="border-t border-[var(--wa-border)] bg-[var(--wa-bg-panel)] px-3 py-2">
+            <div class="flex items-end gap-2">
+              <input id="fileInput" type="file" class="hidden" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.xls,.ppt,.pptx" />
+              <div class="flex min-w-0 flex-1 items-end rounded-[21px] bg-white px-3 py-1.5 text-[var(--wa-text-primary)] shadow-[var(--wa-shadow-sm)]">
+                <button
+                  type="button"
+                  class="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-full text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-hover)]"
+                  aria-label="Emoji"
+                >
+                  <i class="fa-regular fa-face-smile text-base"></i>
+                </button>
+                <textarea
+                  id="messageInput"
+                  rows="1"
+                  placeholder="¿Qué le pasa al carro, jefe?"
+                  class="max-h-32 min-h-[24px] w-full resize-none border-0 bg-transparent px-1 py-1 text-[15px] leading-6 text-[var(--wa-text-primary)] outline-none placeholder:text-[var(--wa-text-secondary)]"
+                ></textarea>
+                <button
+                  id="attachmentBtn"
+                  type="button"
+                  class="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full text-[var(--mech-orange)] transition hover:bg-[var(--wa-hover)]"
+                  title="Adjuntar foto"
+                  aria-label="Adjuntar foto"
+                >
+                  <i class="fa-solid fa-paperclip text-base"></i>
+                </button>
+                <button
+                  type="button"
+                  class="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-hover)]"
+                  aria-label="Cámara"
+                >
+                  <i class="fa-solid fa-camera text-base"></i>
+                </button>
+              </div>
+              <button
+                id="sendBtn"
+                type="button"
+                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--wa-accent)] text-white shadow-sm transition hover:bg-[var(--wa-accent-dark)] disabled:cursor-not-allowed disabled:bg-emerald-300"
+                aria-label="Enviar"
+              >
+                <i id="sendIcon" class="fa-solid fa-microphone text-base"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="historyScreen" class="screen-hidden min-h-0 flex-1 flex-col bg-white">
+        <header class="brand-header px-4 py-[10px]">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-[16px] font-medium">Historial</h2>
+              <p class="brand-subtitle text-[13px]">Tus diagnósticos guardados</p>
+            </div>
+            <button
+              id="newChatFromHistoryBtn"
+              type="button"
+              class="brand-icon flex h-[44px] w-[44px] items-center justify-center rounded-full transition hover:bg-white/10"
+              aria-label="Nuevo chat"
+            >
+              <i class="fa-solid fa-plus text-sm"></i>
+            </button>
+          </div>
+        </header>
+
+        <div class="border-b border-[var(--wa-border)] bg-white px-3 py-2">
+          <div class="rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-[8px] text-[14px] text-[var(--wa-text-secondary)]">
+            <i class="fa-solid fa-clock-rotate-left mr-2 text-xs"></i>
+            Conversaciones recientes
+          </div>
+        </div>
+        <div id="quickStartActions" class="grid grid-cols-1 gap-2 border-b border-[var(--wa-border)] bg-white px-3 py-2 sm:grid-cols-3"></div>
+
+        <div id="historyList" class="min-h-0 flex-1 overflow-y-auto bg-white"></div>
+      </section>
+
+      <section id="settingsScreen" class="screen-hidden min-h-0 flex-1 overflow-y-auto bg-[#f7f8fa]">
+        <header class="brand-header px-4 py-[10px]">
+          <h2 class="text-[16px] font-medium">Ajustes</h2>
+          <p class="brand-subtitle text-[13px]">Configuración y herramientas útiles</p>
+        </header>
+
+        <div class="space-y-4 p-4">
+          <section class="rounded-[16px] bg-white p-4 shadow-[var(--wa-shadow-sm)] ring-1 ring-[var(--wa-border)]">
+            <h3 class="mb-3 text-sm font-semibold text-[var(--wa-text-primary)]">Aplicación</h3>
+            <div class="rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-3 text-sm text-[var(--wa-text-secondary)]">
+              Tus chats se guardan en este dispositivo y se sincronizan por sesión para responder con menos contexto repetido.
+            </div>
+            <div class="mt-4 rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-[var(--wa-text-primary)]">Modo oscuro</div>
+                  <div class="text-[12px] text-[var(--wa-text-secondary)]">Cambia entre apariencia clara y oscura</div>
+                </div>
+                <button
+                  id="darkModeToggle"
+                  type="button"
+                  class="relative h-7 w-12 rounded-full bg-slate-300 transition"
+                  aria-label="Cambiar modo oscuro"
+                  aria-pressed="false"
+                >
+                  <span
+                    id="darkModeThumb"
+                    class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition"
+                  ></span>
+                </button>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="mb-2 block text-sm font-semibold text-[var(--wa-text-primary)]">Tema de país</span>
+              <div
+                id="countryThemeGrid"
+                class="grid grid-cols-2 gap-2 rounded-[8px] bg-[var(--wa-bg-panel)] p-2 sm:grid-cols-3"
+              ></div>
+            </div>
+            <button
+              id="refreshFromSettingsBtn"
+              type="button"
+              class="mt-4 flex w-full items-center justify-between rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-3 text-left text-sm font-semibold text-[var(--wa-text-primary)] transition hover:bg-[var(--wa-hover)]"
+            >
+              <span>Actualizar conversación actual</span>
+              <i class="fa-solid fa-rotate-right text-xs text-[var(--wa-text-secondary)]"></i>
+            </button>
+          </section>
+          <section class="rounded-[16px] bg-white p-4 shadow-[var(--wa-shadow-sm)] ring-1 ring-[var(--wa-border)]">
+            <h3 class="mb-3 text-sm font-semibold text-[var(--wa-text-primary)]">Conversaciones</h3>
+            <div class="space-y-3">
+              <button
+                id="newChatFromSettingsBtn"
+                type="button"
+                class="flex w-full items-center justify-between rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-3 text-left text-sm text-[var(--wa-text-primary)] transition hover:bg-[var(--wa-hover)]"
+              >
+                <span>Nuevo chat</span>
+                <i class="fa-solid fa-plus text-xs text-[var(--wa-text-secondary)]"></i>
+              </button>
+              <button
+                id="exportChatBtn"
+                type="button"
+                class="flex w-full items-center justify-between rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-3 text-left text-sm text-[var(--wa-text-primary)] transition hover:bg-[var(--wa-hover)]"
+              >
+                <span>Exportar chat actual</span>
+                <i class="fa-solid fa-file-export text-xs text-[var(--wa-text-secondary)]"></i>
+              </button>
+              <button
+                id="renameChatBtn"
+                type="button"
+                class="flex w-full items-center justify-between rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-3 text-left text-sm text-[var(--wa-text-primary)] transition hover:bg-[var(--wa-hover)]"
+              >
+                <span>Renombrar chat actual</span>
+                <i class="fa-solid fa-pen text-xs text-[var(--wa-text-secondary)]"></i>
+              </button>
+              <button
+                id="clearCurrentChatBtn"
+                type="button"
+                class="flex w-full items-center justify-between rounded-[8px] bg-[var(--wa-bg-panel)] px-4 py-3 text-left text-sm text-[var(--wa-text-primary)] transition hover:bg-[var(--wa-hover)]"
+              >
+                <span>Borrar chat actual</span>
+                <i class="fa-solid fa-trash-can text-xs text-[var(--wa-text-secondary)]"></i>
+              </button>
+              <button
+                id="clearAllChatsBtn"
+                type="button"
+                class="flex w-full items-center justify-between rounded-[8px] bg-[#fff5f5] px-4 py-3 text-left text-sm text-[#b42318] transition hover:bg-[#fee4e2]"
+              >
+                <span>Borrar todo el historial</span>
+                <i class="fa-solid fa-broom text-xs text-[#b42318]"></i>
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-[16px] bg-[#ecfdf3] p-4 text-sm text-[#027a48] ring-1 ring-[#abefc6]">
+            Mecánico AI guarda tus chats y ajustes en tu navegador para que sigas donde lo dejaste.
+          </section>
+        </div>
+      </section>
+
+      <nav class="grid grid-cols-3 border-t border-[var(--wa-border)] bg-[var(--wa-bg-panel)] text-[var(--wa-text-secondary)]">
+        <button id="tabChatBtn" type="button" class="flex flex-col items-center justify-center gap-1 py-3 text-[0.72rem]">
+          <i class="fa-solid fa-comment text-sm"></i>
+          <span>Chat</span>
+        </button>
+        <button id="tabHistoryBtn" type="button" class="flex flex-col items-center justify-center gap-1 py-3 text-[0.72rem]">
+          <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+          <span>Historial</span>
+        </button>
+        <button id="tabSettingsBtn" type="button" class="flex flex-col items-center justify-center gap-1 py-3 text-[0.72rem]">
+          <i class="fa-solid fa-gear text-sm"></i>
+          <span>Ajustes</span>
+        </button>
+      </nav>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEYS = {
+      chats: "mecanico-ai-chats",
+      activeChatId: "mecanico-ai-active-chat",
+      clientId: "mecanico-ai-client-id",
+      colorMode: "mecanico-ai-color-mode",
+      countryTheme: "mecanico-ai-country-theme",
+      voiceOutput: "mecanico-ai-voice-output"
+    };
+
+    const LEGACY_MESSAGES_KEY = "mecanico-ai-messages";
+    const CHAT_ENDPOINT = "/api/chat";
+    const CHAT_RESET_ENDPOINT = "/api/chat/reset";
+    const DEFAULT_COUNTRY_THEME = "Mexico";
+
+    const COUNTRY_THEMES = {
+      Mexico: {
+        label: "México",
+        accent: "#00a884",
+        accentDark: "#008069",
+        bgApp: "#efeae2",
+        bgChat: "#efeae2",
+        bubbleOut: "#d9fdd3",
+        avatarBg: "#d9fdd3",
+        avatarFg: "#0b8f72",
+        chipBg: "rgba(225, 245, 254, 0.92)"
+      },
+      Colombia: {
+        label: "Colombia",
+        accent: "#f4b400",
+        accentDark: "#c18b00",
+        bgApp: "#f3efe2",
+        bgChat: "#f3efe2",
+        bubbleOut: "#fff3c4",
+        avatarBg: "#fff3c4",
+        avatarFg: "#9a6700",
+        chipBg: "rgba(255, 245, 204, 0.95)"
+      },
+      Spain: {
+        label: "España",
+        accent: "#c62828",
+        accentDark: "#8e1d1d",
+        bgApp: "#f3e7e2",
+        bgChat: "#f3e7e2",
+        bubbleOut: "#ffd9cc",
+        avatarBg: "#ffe0d6",
+        avatarFg: "#a61b1b",
+        chipBg: "rgba(255, 232, 226, 0.95)"
+      },
+      Argentina: {
+        label: "Argentina",
+        accent: "#5bc0eb",
+        accentDark: "#2496c2",
+        bgApp: "#eaf4f8",
+        bgChat: "#eaf4f8",
+        bubbleOut: "#d9f2ff",
+        avatarBg: "#d9f2ff",
+        avatarFg: "#247ba0",
+        chipBg: "rgba(223, 243, 255, 0.95)"
+      },
+      Peru: {
+        label: "Perú",
+        accent: "#d62828",
+        accentDark: "#9f1d1d",
+        bgApp: "#f4e8e8",
+        bgChat: "#f4e8e8",
+        bubbleOut: "#ffdede",
+        avatarBg: "#ffdede",
+        avatarFg: "#a61d24",
+        chipBg: "rgba(255, 235, 235, 0.95)"
+      },
+      Venezuela: {
+        label: "Venezuela",
+        accent: "#f4b400",
+        accentDark: "#b98500",
+        bgApp: "#f3eee1",
+        bgChat: "#f3eee1",
+        bubbleOut: "#ffefbf",
+        avatarBg: "#ffefbf",
+        avatarFg: "#9b6b00",
+        chipBg: "rgba(255, 244, 209, 0.95)"
+      },
+      Chile: {
+        label: "Chile",
+        accent: "#005bbb",
+        accentDark: "#00408a",
+        bgApp: "#e8eef4",
+        bgChat: "#e8eef4",
+        bubbleOut: "#dbeafe",
+        avatarBg: "#dbeafe",
+        avatarFg: "#00408a",
+        chipBg: "rgba(226, 236, 255, 0.95)"
+      },
+      Ecuador: {
+        label: "Ecuador",
+        accent: "#f4b400",
+        accentDark: "#bc8a00",
+        bgApp: "#f5f0e3",
+        bgChat: "#f5f0e3",
+        bubbleOut: "#fff2bf",
+        avatarBg: "#fff2bf",
+        avatarFg: "#a37200",
+        chipBg: "rgba(255, 247, 214, 0.95)"
+      },
+      Guatemala: {
+        label: "Guatemala",
+        accent: "#4db6e5",
+        accentDark: "#2287b3",
+        bgApp: "#e8f4f7",
+        bgChat: "#e8f4f7",
+        bubbleOut: "#d8f3ff",
+        avatarBg: "#d8f3ff",
+        avatarFg: "#1f7a9b",
+        chipBg: "rgba(225, 246, 255, 0.95)"
+      },
+      Cuba: {
+        label: "Cuba",
+        accent: "#c62828",
+        accentDark: "#8f1d1d",
+        bgApp: "#f4e9e9",
+        bgChat: "#f4e9e9",
+        bubbleOut: "#ffe0e0",
+        avatarBg: "#ffe0e0",
+        avatarFg: "#a61d24",
+        chipBg: "rgba(255, 236, 236, 0.95)"
+      },
+      Bolivia: {
+        label: "Bolivia",
+        accent: "#2e7d32",
+        accentDark: "#1f5a24",
+        bgApp: "#ecf1e7",
+        bgChat: "#ecf1e7",
+        bubbleOut: "#def2d2",
+        avatarBg: "#def2d2",
+        avatarFg: "#2f6b1e",
+        chipBg: "rgba(231, 245, 223, 0.95)"
+      },
+      "República Dominicana": {
+        label: "República Dominicana",
+        accent: "#005bbb",
+        accentDark: "#003f84",
+        bgApp: "#e9edf4",
+        bgChat: "#e9edf4",
+        bubbleOut: "#dbe9ff",
+        avatarBg: "#dbe9ff",
+        avatarFg: "#00408a",
+        chipBg: "rgba(227, 236, 255, 0.95)"
+      },
+      Honduras: {
+        label: "Honduras",
+        accent: "#2aa4d8",
+        accentDark: "#1d7da5",
+        bgApp: "#e9f4f7",
+        bgChat: "#e9f4f7",
+        bubbleOut: "#d6f3ff",
+        avatarBg: "#d6f3ff",
+        avatarFg: "#1d7896",
+        chipBg: "rgba(225, 247, 255, 0.95)"
+      },
+      Paraguay: {
+        label: "Paraguay",
+        accent: "#d62828",
+        accentDark: "#9f1d1d",
+        bgApp: "#f3ebeb",
+        bgChat: "#f3ebeb",
+        bubbleOut: "#ffe1e1",
+        avatarBg: "#ffe1e1",
+        avatarFg: "#a61d24",
+        chipBg: "rgba(255, 238, 238, 0.95)"
+      },
+      "El Salvador": {
+        label: "El Salvador",
+        accent: "#1e88e5",
+        accentDark: "#1565c0",
+        bgApp: "#e8f0f7",
+        bgChat: "#e8f0f7",
+        bubbleOut: "#d9ecff",
+        avatarBg: "#d9ecff",
+        avatarFg: "#1565c0",
+        chipBg: "rgba(227, 239, 255, 0.95)"
+      },
+      Nicaragua: {
+        label: "Nicaragua",
+        accent: "#1d9bf0",
+        accentDark: "#166fa8",
+        bgApp: "#e9f3f8",
+        bgChat: "#e9f3f8",
+        bubbleOut: "#d7efff",
+        avatarBg: "#d7efff",
+        avatarFg: "#166f9b",
+        chipBg: "rgba(225, 242, 255, 0.95)"
+      },
+      "Costa Rica": {
+        label: "Costa Rica",
+        accent: "#c62828",
+        accentDark: "#941f1f",
+        bgApp: "#f3eceb",
+        bgChat: "#f3eceb",
+        bubbleOut: "#ffe4df",
+        avatarBg: "#ffe4df",
+        avatarFg: "#9f1d1d",
+        chipBg: "rgba(255, 239, 235, 0.95)"
+      },
+      Panama: {
+        label: "Panamá",
+        accent: "#005bbb",
+        accentDark: "#00408a",
+        bgApp: "#eaf0f5",
+        bgChat: "#eaf0f5",
+        bubbleOut: "#dce8ff",
+        avatarBg: "#dce8ff",
+        avatarFg: "#00408a",
+        chipBg: "rgba(228, 237, 255, 0.95)"
+      },
+      Uruguay: {
+        label: "Uruguay",
+        accent: "#4db6e5",
+        accentDark: "#2287b3",
+        bgApp: "#edf5f8",
+        bgChat: "#edf5f8",
+        bubbleOut: "#dcf4ff",
+        avatarBg: "#dcf4ff",
+        avatarFg: "#247ba0",
+        chipBg: "rgba(228, 247, 255, 0.95)"
+      },
+      "Guinea Ecuatorial": {
+        label: "Guinea Ecuatorial",
+        accent: "#2e7d32",
+        accentDark: "#235f26",
+        bgApp: "#ebf1e9",
+        bgChat: "#ebf1e9",
+        bubbleOut: "#dff0d9",
+        avatarBg: "#dff0d9",
+        avatarFg: "#2d6a2d",
+        chipBg: "rgba(231, 243, 225, 0.95)"
+      }
+    };
+
+    const DARK_OVERRIDES = {
+      colorScheme: "dark",
+      bgApp: "#0b141a",
+      bgPanel: "#202c33",
+      bgSidebar: "#111b21",
+      bgChat: "#0b141a",
+      bubbleIn: "#202c33",
+      textPrimary: "#e9edef",
+      textSecondary: "#8696a0",
+      textMeta: "#8696a0",
+      border: "#2a3942",
+      divider: "#2a3942",
+      hover: "rgba(233, 237, 239, 0.08)",
+      active: "rgba(0, 168, 132, 0.22)",
+      chipBg: "rgba(32, 44, 51, 0.92)"
+    };
+
+    const FLAG_STYLES = {
+      Mexico: "background:linear-gradient(90deg,#006847 0 33.33%,#ffffff 33.33% 66.66%,#ce1126 66.66% 100%);",
+      Colombia: "background:linear-gradient(180deg,#fcd116 0 50%,#003893 50% 75%,#ce1126 75% 100%);",
+      Spain: "background:linear-gradient(180deg,#aa151b 0 25%,#f1bf00 25% 75%,#aa151b 75% 100%);",
+      Argentina: "background:linear-gradient(180deg,#74acdf 0 33.33%,#ffffff 33.33% 66.66%,#74acdf 66.66% 100%);",
+      Peru: "background:linear-gradient(90deg,#d91023 0 33.33%,#ffffff 33.33% 66.66%,#d91023 66.66% 100%);",
+      Venezuela: "background:linear-gradient(180deg,#f4c300 0 33.33%,#0033a0 33.33% 66.66%,#cf142b 66.66% 100%);",
+      Chile: "background:linear-gradient(180deg,#ffffff 0 50%,#d52b1e 50% 100%),linear-gradient(90deg,#0039a6 0 34%,transparent 34% 100%);background-size:100% 100%,100% 50%;background-repeat:no-repeat;",
+      Ecuador: "background:linear-gradient(180deg,#fcd116 0 50%,#003893 50% 75%,#ce1126 75% 100%);",
+      Guatemala: "background:linear-gradient(90deg,#4997d0 0 33.33%,#ffffff 33.33% 66.66%,#4997d0 66.66% 100%);",
+      Cuba: "background:linear-gradient(180deg,#002a8f 0 20%,#ffffff 20% 40%,#002a8f 40% 60%,#ffffff 60% 80%,#002a8f 80% 100%);",
+      Bolivia: "background:linear-gradient(180deg,#d52b1e 0 33.33%,#f9e300 33.33% 66.66%,#007934 66.66% 100%);",
+      "República Dominicana": "background:linear-gradient(90deg,#002d62 0 45%,#ffffff 45% 55%,#ce1126 55% 100%),linear-gradient(180deg,transparent 0 45%,#ffffff 45% 55%,transparent 55% 100%);",
+      Honduras: "background:linear-gradient(180deg,#00bce4 0 33.33%,#ffffff 33.33% 66.66%,#00bce4 66.66% 100%);",
+      Paraguay: "background:linear-gradient(180deg,#d52b1e 0 33.33%,#ffffff 33.33% 66.66%,#0038a8 66.66% 100%);",
+      "El Salvador": "background:linear-gradient(180deg,#0047ab 0 33.33%,#ffffff 33.33% 66.66%,#0047ab 66.66% 100%);",
+      Nicaragua: "background:linear-gradient(180deg,#0067c6 0 33.33%,#ffffff 33.33% 66.66%,#0067c6 66.66% 100%);",
+      "Costa Rica": "background:linear-gradient(180deg,#002b7f 0 16%,#ffffff 16% 32%,#ce1126 32% 68%,#ffffff 68% 84%,#002b7f 84% 100%);",
+      Panama: "background:linear-gradient(90deg,#ffffff 0 50%,#d21034 50% 100%),linear-gradient(180deg,#005293 0 50%,#ffffff 50% 100%);",
+      Uruguay: "background:linear-gradient(180deg,#ffffff 0 14%,#3c9dd0 14% 28%,#ffffff 28% 42%,#3c9dd0 42% 56%,#ffffff 56% 70%,#3c9dd0 70% 84%,#ffffff 84% 100%);",
+      "Guinea Ecuatorial": "background:linear-gradient(180deg,#3e9a00 0 33.33%,#ffffff 33.33% 66.66%,#e32118 66.66% 100%),linear-gradient(90deg,#3a75c4 0 22%,transparent 22% 100%);"
+    };
+
+    function makeId() {
+      return window.crypto?.randomUUID?.() || `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function createWelcomeMessage() {
+      return {
+        id: makeId(),
+        role: "assistant",
+        content:
+          "Qué tal. ¿Me puedes decir el año, la marca y el modelo del vehículo, y cuál es la falla detallada que está presentando?",
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    function sanitizeMessages(messages) {
+      const welcomeText = createWelcomeMessage().content;
+      const legacyWelcomeText =
+        "Buenas, jefe. Soy Mecánico AI. Cuéntame qué vehículo traes, qué síntomas hace y desde cuándo empezó la falla. Si me das marca, modelo, año, kilometraje y si hay luces en tablero, te aterrizo el diagnóstico paso a paso.";
+      const sanitized = [];
+
+      for (const rawMessage of messages) {
+        const message = { ...rawMessage };
+
+        if (
+          sanitized.length === 0 &&
+          message.role === "assistant" &&
+          (message.content === legacyWelcomeText || message.content === welcomeText)
+        ) {
+          message.content = welcomeText;
+        }
+
+        const previous = sanitized[sanitized.length - 1];
+        const isConsecutiveDuplicate =
+          previous &&
+          previous.role === "assistant" &&
+          message.role === "assistant" &&
+          previous.content === message.content;
+
+        if (!isConsecutiveDuplicate) {
+          sanitized.push(message);
+        }
+      }
+
+      return sanitized.length ? sanitized : [createWelcomeMessage()];
+    }
+
+    function inferChatTitle(messages) {
+      const firstUser = messages.find((message) => message.role === "user");
+      if (!firstUser) {
+        return "Consulta inicial";
+      }
+      const flattened = firstUser.content.replace(/\s+/g, " ").trim();
+      return flattened.slice(0, 34) || "Nuevo diagnóstico";
+    }
+
+    function makeWelcomeChat() {
+      const now = new Date().toISOString();
+      return {
+        id: makeId(),
+        title: "Consulta inicial",
+        createdAt: now,
+        updatedAt: now,
+        messages: [createWelcomeMessage()]
+      };
+    }
+
+    function normalizeChat(chat) {
+      let messages = Array.isArray(chat.messages) && chat.messages.length ? chat.messages : [createWelcomeMessage()];
+      messages = sanitizeMessages(messages);
+      return {
+        id: chat.id || makeId(),
+        title: chat.title || inferChatTitle(messages),
+        createdAt: chat.createdAt || messages[0].timestamp || new Date().toISOString(),
+        updatedAt: chat.updatedAt || messages[messages.length - 1].timestamp || new Date().toISOString(),
+        messages
+      };
+    }
+
+    function loadChats() {
+      try {
+        const rawChats = localStorage.getItem(STORAGE_KEYS.chats);
+        if (rawChats) {
+          const parsedChats = JSON.parse(rawChats);
+          if (Array.isArray(parsedChats) && parsedChats.length) {
+            return parsedChats.map(normalizeChat);
+          }
+        }
+
+        const legacyMessages = localStorage.getItem(LEGACY_MESSAGES_KEY);
+        if (legacyMessages) {
+          const parsedMessages = JSON.parse(legacyMessages);
+          if (Array.isArray(parsedMessages) && parsedMessages.length) {
+            return [normalizeChat({ messages: parsedMessages })];
+          }
+        }
+      } catch {
+        return [makeWelcomeChat()];
+      }
+
+      return [makeWelcomeChat()];
+    }
+
+    const state = {
+      clientId: loadClientId(),
+      chats: loadChats(),
+      activeChatId: localStorage.getItem(STORAGE_KEYS.activeChatId) || "",
+      isLoading: false,
+      activeTab: "chat",
+      colorMode: localStorage.getItem(STORAGE_KEYS.colorMode) || "light",
+      countryTheme: localStorage.getItem(STORAGE_KEYS.countryTheme) || DEFAULT_COUNTRY_THEME,
+      voiceOutputEnabled: localStorage.getItem(STORAGE_KEYS.voiceOutput) !== "false",
+      pendingFiles: [],
+      isRecording: false,
+      requestToken: 0
+    };
+
+    if (!state.activeChatId || !state.chats.some((chat) => chat.id === state.activeChatId)) {
+      state.activeChatId = state.chats[0]?.id || "";
+    }
+
+    const chatScreen = document.getElementById("chatScreen");
+    const historyScreen = document.getElementById("historyScreen");
+    const settingsScreen = document.getElementById("settingsScreen");
+    const chatTitle = document.getElementById("chatTitle");
+    const chatSubtitle = document.getElementById("chatSubtitle");
+    const chatMessages = document.getElementById("chatMessages");
+    const historyList = document.getElementById("historyList");
+    const quickStartActions = document.getElementById("quickStartActions");
+    const messageInput = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const sendIcon = document.getElementById("sendIcon");
+    const fileInput = document.getElementById("fileInput");
+    const attachmentPreview = document.getElementById("attachmentPreview");
+    const attachmentBtn = document.getElementById("attachmentBtn");
+    const refreshChatBtn = document.getElementById("refreshChatBtn");
+    const voiceToggleBtn = document.getElementById("voiceToggleBtn");
+    const voiceToggleIcon = document.getElementById("voiceToggleIcon");
+    const newChatBtn = document.getElementById("newChatBtn");
+    const newChatFromHistoryBtn = document.getElementById("newChatFromHistoryBtn");
+    const newChatFromSettingsBtn = document.getElementById("newChatFromSettingsBtn");
+    const refreshFromSettingsBtn = document.getElementById("refreshFromSettingsBtn");
+    const tabChatBtn = document.getElementById("tabChatBtn");
+    const tabHistoryBtn = document.getElementById("tabHistoryBtn");
+    const tabSettingsBtn = document.getElementById("tabSettingsBtn");
+    const darkModeToggle = document.getElementById("darkModeToggle");
+    const darkModeThumb = document.getElementById("darkModeThumb");
+    const countryThemeGrid = document.getElementById("countryThemeGrid");
+    const exportChatBtn = document.getElementById("exportChatBtn");
+    const renameChatBtn = document.getElementById("renameChatBtn");
+    const clearCurrentChatBtn = document.getElementById("clearCurrentChatBtn");
+    const clearAllChatsBtn = document.getElementById("clearAllChatsBtn");
+
+    function saveChats() {
+      localStorage.setItem(STORAGE_KEYS.chats, JSON.stringify(state.chats));
+      localStorage.setItem(STORAGE_KEYS.activeChatId, state.activeChatId);
+    }
+
+    function saveAppearance() {
+      localStorage.setItem(STORAGE_KEYS.colorMode, state.colorMode);
+      localStorage.setItem(STORAGE_KEYS.countryTheme, state.countryTheme);
+    }
+
+    function clearLegacyChatStorage() {
+      localStorage.removeItem(LEGACY_MESSAGES_KEY);
+      localStorage.removeItem("mecanico-ai-chat-history");
+      localStorage.removeItem("mecanico-ai-history");
+    }
+
+    function loadClientId() {
+      const existing = localStorage.getItem(STORAGE_KEYS.clientId);
+      if (existing) {
+        return existing;
+      }
+      const created = makeId();
+      localStorage.setItem(STORAGE_KEYS.clientId, created);
+      return created;
+    }
+
+    function getActiveChat() {
+      return state.chats.find((chat) => chat.id === state.activeChatId) || state.chats[0] || null;
+    }
+
+    function getChatById(chatId) {
+      return state.chats.find((chat) => chat.id === chatId) || null;
+    }
+
+    function invalidatePendingRequest() {
+      state.requestToken += 1;
+      state.isLoading = false;
+    }
+
+    async function clearServerCache(chatId) {
+      if (!chatId) {
+        return;
+      }
+      try {
+        await fetch(CHAT_RESET_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            clientId: state.clientId,
+            chatId
+          })
+        });
+      } catch {
+        // Ignore reset errors so local chat clear remains instant.
+      }
+    }
+
+    async function clearAllServerCache() {
+      try {
+        await fetch(CHAT_RESET_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            clientId: state.clientId,
+            all: true
+          })
+        });
+      } catch {
+        // Ignore reset errors so local chat clear remains instant.
+      }
+    }
+
+    function syncAppearanceControls() {
+      darkModeToggle.setAttribute("aria-pressed", state.colorMode === "dark" ? "true" : "false");
+      darkModeToggle.className = `relative h-7 w-12 rounded-full transition ${state.colorMode === "dark" ? "bg-[var(--wa-accent)]" : "bg-slate-300"}`;
+      darkModeThumb.className = `absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${state.colorMode === "dark" ? "left-6" : "left-1"}`;
+      renderThemeOptions();
+    }
+
+    function renderThemeOptions() {
+      countryThemeGrid.innerHTML = Object.entries(COUNTRY_THEMES)
+        .map(([key, theme]) => {
+          const selected = key === state.countryTheme;
+          const flagStyle = FLAG_STYLES[key] || "background:#dfe5e7;";
+          return `
+            <button
+              type="button"
+              data-theme-key="${key}"
+              class="flex items-center gap-2 rounded-[10px] border px-3 py-2 text-left transition ${
+                selected
+                  ? "border-[var(--wa-accent)] bg-white shadow-[var(--wa-shadow-sm)]"
+                  : "border-transparent bg-white/70 hover:bg-white"
+              }"
+            >
+              <span
+                class="h-7 w-10 shrink-0 rounded-[5px] border border-black/10 shadow-[var(--wa-shadow-sm)]"
+                style="${flagStyle}"
+              ></span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-[13px] font-semibold text-[var(--wa-text-primary)]">${theme.label}</span>
+                <span class="mt-1 flex gap-1">
+                  <span class="h-2 w-2 rounded-full" style="background:${theme.accent};"></span>
+                  <span class="h-2 w-2 rounded-full" style="background:${theme.accentDark};"></span>
+                  <span class="h-2 w-2 rounded-full" style="background:${theme.bubbleOut};"></span>
+                </span>
+              </span>
+            </button>
+          `;
+        })
+        .join("");
+    }
+
+    function applyAppearance() {
+      const root = document.documentElement;
+      const theme = COUNTRY_THEMES[state.countryTheme] || COUNTRY_THEMES[DEFAULT_COUNTRY_THEME];
+      const palette = {
+        colorScheme: "light",
+        bgApp: theme.bgApp,
+        bgPanel: "#f0f2f5",
+        bgSidebar: "#ffffff",
+        bgChat: theme.bgChat,
+        bubbleOut: theme.bubbleOut,
+        bubbleIn: "#ffffff",
+        textPrimary: "#111b21",
+        textSecondary: "#667781",
+        textMeta: "#8696a0",
+        border: "#e9edef",
+        divider: "#d1d7db",
+        accent: theme.accent,
+        accentDark: theme.accentDark,
+        link: "#53bdeb",
+        hover: "rgba(17, 27, 33, 0.06)",
+        active: "rgba(0, 168, 132, 0.14)",
+        avatarBg: theme.avatarBg,
+        avatarFg: theme.avatarFg,
+        chipBg: theme.chipBg
+      };
+
+      if (state.colorMode === "dark") {
+        Object.assign(palette, DARK_OVERRIDES, {
+          accent: theme.accent,
+          accentDark: theme.accentDark,
+          bubbleOut: theme.accentDark,
+          avatarBg: "rgba(255,255,255,0.12)",
+          avatarFg: "#e9edef"
+        });
+      }
+
+      root.style.setProperty("--wa-bg-app", palette.bgApp);
+      root.style.setProperty("--wa-bg-panel", palette.bgPanel);
+      root.style.setProperty("--wa-bg-sidebar", palette.bgSidebar);
+      root.style.setProperty("--wa-bg-chat", palette.bgChat);
+      root.style.setProperty("--wa-bubble-out", palette.bubbleOut);
+      root.style.setProperty("--wa-bubble-in", palette.bubbleIn);
+      root.style.setProperty("--wa-text-primary", palette.textPrimary);
+      root.style.setProperty("--wa-text-secondary", palette.textSecondary);
+      root.style.setProperty("--wa-text-meta", palette.textMeta);
+      root.style.setProperty("--wa-border", palette.border);
+      root.style.setProperty("--wa-divider", palette.divider);
+      root.style.setProperty("--wa-accent", palette.accent);
+      root.style.setProperty("--wa-accent-dark", palette.accentDark);
+      root.style.setProperty("--wa-link", palette.link);
+      root.style.setProperty("--wa-hover", palette.hover);
+      root.style.setProperty("--wa-active", palette.active);
+      root.style.setProperty("--wa-avatar-bg", palette.avatarBg);
+      root.style.setProperty("--wa-avatar-fg", palette.avatarFg);
+      root.style.setProperty("--wa-chip-bg", palette.chipBg);
+      root.style.colorScheme = palette.colorScheme;
+
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) {
+        themeMeta.setAttribute("content", palette.accentDark);
+      }
+
+      syncAppearanceControls();
+    }
+
+    function touchChat(chat) {
+      chat.updatedAt = new Date().toISOString();
+      if (!chat.title || chat.title === "Consulta inicial") {
+        chat.title = inferChatTitle(chat.messages);
+      }
+      saveChats();
+      clearLegacyChatStorage();
+    }
+    function formatTime(timestamp) {
+      return new Date(timestamp).toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function formatDayLabel(timestamp) {
+      const target = new Date(timestamp);
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+
+      if (target.toDateString() === today.toDateString()) {
+        return "Hoy";
+      }
+      if (target.toDateString() === yesterday.toDateString()) {
+        return "Ayer";
+      }
+
+      return target.toLocaleDateString("es-MX", {
+        weekday: "long",
+        day: "numeric",
+        month: "short"
+      });
+    }
+
+    function truncateText(text, limit = 46) {
+      if (text.length <= limit) {
+        return text;
+      }
+      return `${text.slice(0, limit - 1)}…`;
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function formatMessage(text) {
+      return escapeHtml(text).replace(/\n/g, "<br>");
+    }
+
+    function renderTab() {
+      const activeClass = "text-[var(--wa-accent)]";
+      const inactiveClass = "text-[var(--wa-text-secondary)]";
+
+      chatScreen.classList.toggle("screen-hidden", state.activeTab !== "chat");
+      historyScreen.classList.toggle("screen-hidden", state.activeTab !== "history");
+      settingsScreen.classList.toggle("screen-hidden", state.activeTab !== "settings");
+
+      tabChatBtn.className = `flex flex-col items-center justify-center gap-1 py-3 text-[0.72rem] ${state.activeTab === "chat" ? activeClass : inactiveClass}`;
+      tabHistoryBtn.className = `flex flex-col items-center justify-center gap-1 py-3 text-[0.72rem] ${state.activeTab === "history" ? activeClass : inactiveClass}`;
+      tabSettingsBtn.className = `flex flex-col items-center justify-center gap-1 py-3 text-[0.72rem] ${state.activeTab === "settings" ? activeClass : inactiveClass}`;
+
+      if (state.activeTab === "chat") {
+        setTimeout(() => messageInput.focus(), 30);
+      }
+    }
+
+    function renderHeader() {
+      const activeChat = getActiveChat();
+      if (!activeChat) {
+        chatTitle.textContent = "Mecánico AI";
+        chatSubtitle.textContent = "Sin conversación";
+        return;
+      }
+
+      chatTitle.textContent = truncateText(activeChat.title, 28);
+      chatSubtitle.textContent = "En línea • Ayudando en el taller";
+    }
+
+    function renderDateSeparator(label) {
+      return `
+        <div class="flex justify-center py-2">
+          <div class="date-chip rounded-[7px] px-3 py-1 text-[12px] font-medium">${label}</div>
+        </div>
+      `;
+    }
+
+    function renderMessageBubble(message) {
+      const isUser = message.role === "user";
+      const rowClass = isUser ? "justify-end" : "justify-start";
+      const bubbleClass = isUser
+        ? "bg-[var(--wa-bubble-out)] text-[var(--wa-text-primary)] bubble-tail-right rounded-[7.5px]"
+        : "bg-[var(--wa-bubble-in)] text-[var(--wa-text-primary)] bubble-tail-left rounded-[7.5px]";
+      const metaClass = "text-[var(--wa-text-meta)]";
+      const status = isUser
+        ? `<span class="ml-1 inline-flex items-center text-[10px] text-[#53bdeb]"><i class="fa-solid fa-check-double"></i></span>`
+        : "";
+
+      return `
+        <div class="message-enter flex ${rowClass} px-1">
+          <div class="relative ${bubbleClass} inline-block min-w-[92px] max-w-[82%] px-[9px] pb-[7px] pt-[6px] shadow-[var(--wa-shadow-sm)] sm:max-w-[65%]">
+            <div class="break-words text-[14px] leading-[1.4]" style="overflow-wrap:anywhere;">${formatMessage(message.content)}</div>
+            <div class="mt-1 flex items-center justify-end text-[11px] leading-none ${metaClass}">
+              <span>${formatTime(message.timestamp)}</span>
+              ${status}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTypingIndicator() {
+      return `
+        <div class="flex justify-start">
+          <div class="flex max-w-[82%] flex-col px-1">
+            <div class="relative rounded-[7.5px] bg-[var(--wa-bubble-in)] px-[9px] py-[8px] shadow-[var(--wa-shadow-sm)] bubble-tail-left sm:max-w-[65%]">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-wrench text-[12px] text-[var(--mech-orange)]"></i>
+                <span class="text-[14px] text-[var(--wa-text-primary)]">Mecánico AI está escribiendo…</span>
+                <span class="flex items-center gap-1">
+                  <span class="dot h-2 w-2 rounded-full bg-slate-400"></span>
+                  <span class="dot h-2 w-2 rounded-full bg-slate-400"></span>
+                  <span class="dot h-2 w-2 rounded-full bg-slate-400"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function buildMessageThread(messages) {
+      let previousDay = "";
+      return messages
+        .map((message) => {
+          const dayLabel = formatDayLabel(message.timestamp);
+          const separator = dayLabel !== previousDay ? renderDateSeparator(dayLabel) : "";
+          previousDay = dayLabel;
+          return `${separator}${renderMessageBubble(message)}`;
+        })
+        .join("");
+    }
+
+    function renderMessages() {
+      const activeChat = getActiveChat();
+      if (!activeChat) {
+        chatMessages.innerHTML = "";
+        return;
+      }
+
+      chatMessages.innerHTML = buildMessageThread(activeChat.messages);
+      if (state.isLoading) {
+        chatMessages.insertAdjacentHTML("beforeend", renderTypingIndicator());
+      }
+
+      requestAnimationFrame(() => {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      });
+    }
+
+    function renderHistory() {
+      const chats = [...state.chats].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      historyList.innerHTML = chats
+        .map((chat) => {
+          const lastMessage = chat.messages[chat.messages.length - 1];
+          const preview = `${lastMessage.role === "user" ? "Tú: " : ""}${truncateText(lastMessage.content, 44)}`;
+          const isActive = chat.id === state.activeChatId;
+          return `
+            <button
+              type="button"
+              data-chat-id="${chat.id}"
+              class="history-item flex w-full items-center gap-3 px-4 py-3 text-left ${isActive ? "bg-[#f0f2f5]" : "bg-white"}"
+            >
+              <div class="flex h-[49px] w-[49px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--wa-avatar-bg)] p-[2px]">
+                <img src="mecanico-logo.png" alt="Logo Mecánico AI" class="h-full w-full rounded-full object-cover" />
+              </div>
+              <div class="min-w-0 flex-1 border-b border-[#f2f2f2] py-1">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="truncate text-[16px] font-medium text-[var(--wa-text-primary)]">${escapeHtml(chat.title)}</div>
+                    <div class="truncate pt-0.5 text-[14px] text-[var(--wa-text-secondary)]">${escapeHtml(preview)}</div>
+                  </div>
+                  <div class="shrink-0 text-right">
+                    <div class="text-[12px] text-[var(--wa-text-meta)]">${formatTime(chat.updatedAt)}</div>
+                    <div class="mt-1 text-[11px] text-[var(--wa-text-meta)]">${chat.messages.length} msg</div>
+                  </div>
+                </div>
+              </div>
+            </button>
+          `;
+        })
+        .join("");
+    }
+
+    function renderQuickActions() {
+      quickStartActions.innerHTML = `
+        <button type="button" data-quick-action="diagnosticar" class="quick-action flex items-center gap-3 rounded-[10px] border border-[var(--wa-border)] bg-white px-3 py-2 text-left">
+          <span class="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--wa-active)] text-[var(--wa-accent-dark)]"><i class="fa-solid fa-stethoscope text-[14px]"></i></span>
+          <span>
+            <span class="block text-[13px] font-semibold text-[var(--wa-text-primary)]">Diagnosticar problema</span>
+            <span class="block text-[12px] text-[var(--wa-text-secondary)]">Falla, ruido o luz en tablero</span>
+          </span>
+        </button>
+        <button type="button" data-quick-action="refaccion" class="quick-action flex items-center gap-3 rounded-[10px] border border-[var(--wa-border)] bg-white px-3 py-2 text-left">
+          <span class="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff1e6] text-[var(--mech-orange)]"><i class="fa-solid fa-box-open text-[14px]"></i></span>
+          <span>
+            <span class="block text-[13px] font-semibold text-[var(--wa-text-primary)]">Buscar refacción</span>
+            <span class="block text-[12px] text-[var(--wa-text-secondary)]">Pieza, marca y costo aproximado</span>
+          </span>
+        </button>
+        <button type="button" data-quick-action="horario" class="quick-action flex items-center gap-3 rounded-[10px] border border-[var(--wa-border)] bg-white px-3 py-2 text-left">
+          <span class="flex h-9 w-9 items-center justify-center rounded-full bg-[#ecfdf3] text-[#027a48]"><i class="fa-solid fa-clock text-[14px]"></i></span>
+          <span>
+            <span class="block text-[13px] font-semibold text-[var(--wa-text-primary)]">Horario de refacciones</span>
+            <span class="block text-[12px] text-[var(--wa-text-secondary)]">Disponibilidad y tiempos</span>
+          </span>
+        </button>
+      `;
+    }
+
+    function renderApp() {
+      renderTab();
+      renderHeader();
+      renderMessages();
+      renderHistory();
+      renderQuickActions();
+      renderAttachmentPreview();
+      syncVoiceControls();
+    }
+
+    function renderAttachmentPreview() {
+      if (!state.pendingFiles.length) {
+        attachmentPreview.classList.add("hidden");
+        attachmentPreview.innerHTML = "";
+        return;
+      }
+
+      attachmentPreview.classList.remove("hidden");
+      attachmentPreview.innerHTML = `
+        <div class="flex flex-wrap gap-2">
+          ${state.pendingFiles.map((file, index) => `
+            <span class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[12px] text-[var(--wa-text-primary)] shadow-[var(--wa-shadow-sm)]">
+              <i class="fa-solid ${file.type.startsWith("image/") ? "fa-image" : "fa-file-lines"} text-[11px] text-[var(--wa-text-secondary)]"></i>
+              <span class="max-w-[130px] truncate">${escapeHtml(file.name)}</span>
+              <button type="button" data-remove-file="${index}" class="text-[var(--wa-text-secondary)] hover:text-[var(--wa-text-primary)]" aria-label="Quitar archivo">
+                <i class="fa-solid fa-xmark text-[10px]"></i>
+              </button>
+            </span>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function syncVoiceControls() {
+      voiceToggleBtn.setAttribute("aria-label", state.voiceOutputEnabled ? "Voz activada" : "Voz desactivada");
+      voiceToggleBtn.title = state.voiceOutputEnabled ? "Voz activada" : "Voz desactivada";
+      voiceToggleIcon.className = state.voiceOutputEnabled
+        ? "fa-solid fa-volume-high text-sm"
+        : "fa-solid fa-volume-xmark text-sm";
+    }
+
+    function speakText(text) {
+      if (!state.voiceOutputEnabled || !window.speechSynthesis) {
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "es-MX";
+      utterance.rate = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function readFileAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || "");
+          const commaIndex = result.indexOf(",");
+          if (commaIndex === -1) {
+            reject(new Error("No se pudo procesar el archivo."));
+            return;
+          }
+          resolve(result.slice(commaIndex + 1));
+        };
+        reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function buildAttachmentPayload(files) {
+      const maxFileSize = 8 * 1024 * 1024;
+      const payload = [];
+      for (const file of files) {
+        if (file.size > maxFileSize) {
+          throw new Error(`El archivo ${file.name} supera 8MB.`);
+        }
+        const dataBase64 = await readFileAsBase64(file);
+        payload.push({
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+          kind: file.type.startsWith("image/") ? "image" : "file",
+          dataBase64
+        });
+      }
+      return payload;
+    }
+
+    function startVoiceInput() {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Recognition) {
+        window.alert("Tu navegador no soporta dictado por voz.");
+        return;
+      }
+
+      const recognition = new Recognition();
+      recognition.lang = "es-MX";
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      state.isRecording = true;
+      updateComposerState();
+
+      let transcript = messageInput.value ? `${messageInput.value} ` : "";
+      recognition.onresult = (event) => {
+        transcript = Array.from(event.results).map((result) => result[0].transcript).join(" ");
+        messageInput.value = transcript.trim();
+        resizeTextarea();
+      };
+
+      recognition.onend = () => {
+        state.isRecording = false;
+        updateComposerState();
+      };
+
+      recognition.onerror = () => {
+        state.isRecording = false;
+        updateComposerState();
+      };
+
+      recognition.start();
+    }
+
+    function updateComposerState() {
+      const hasText = messageInput.value.trim().length > 0;
+      const hasFiles = state.pendingFiles.length > 0;
+      if (state.isRecording) {
+        sendIcon.className = "fa-solid fa-stop text-sm";
+        sendBtn.setAttribute("aria-label", "Grabando");
+        return;
+      }
+      sendIcon.className = (hasText || hasFiles)
+        ? "fa-solid fa-paper-plane text-sm"
+        : "fa-solid fa-microphone text-base";
+      sendBtn.setAttribute("aria-label", (hasText || hasFiles) ? "Enviar" : "Audio");
+    }
+
+    function resizeTextarea() {
+      messageInput.style.height = "auto";
+      messageInput.style.height = `${Math.min(messageInput.scrollHeight, 128)}px`;
+      updateComposerState();
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      renderTab();
+      if (tab === "history") {
+        renderHistory();
+      }
+      if (tab === "chat") {
+        renderHeader();
+      }
+    }
+
+    function createChat() {
+      invalidatePendingRequest();
+      const chat = makeWelcomeChat();
+      state.chats.unshift(chat);
+      state.activeChatId = chat.id;
+      saveChats();
+      clearLegacyChatStorage();
+      renderApp();
+      switchTab("chat");
+      messageInput.value = "";
+      resizeTextarea();
+    }
+    function addMessage(role, content, options = {}) {
+      const targetChat = options.chatId ? getChatById(options.chatId) : getActiveChat();
+      if (!targetChat) {
+        return;
+      }
+
+      targetChat.messages.push({
+        id: makeId(),
+        role,
+        content,
+        timestamp: new Date().toISOString()
+      });
+
+      touchChat(targetChat);
+      renderApp();
+      if (role === "assistant" && options.speak !== false && targetChat.id === state.activeChatId) {
+        speakText(content);
+      }
+    }
+
+    function resetCurrentChat() {
+      const activeChat = getActiveChat();
+      if (!activeChat) {
+        return;
+      }
+      const oldChatId = activeChat.id;
+      const replacement = makeWelcomeChat();
+      const index = state.chats.findIndex((chat) => chat.id === oldChatId);
+      if (index === -1) {
+        return;
+      }
+      invalidatePendingRequest();
+      state.chats[index] = replacement;
+      state.activeChatId = replacement.id;
+      state.pendingFiles = [];
+      saveChats();
+      clearLegacyChatStorage();
+      renderApp();
+      switchTab("chat");
+      messageInput.value = "";
+      resizeTextarea();
+      clearServerCache(oldChatId);
+    }
+
+    function clearAllChats() {
+      invalidatePendingRequest();
+      state.chats = [makeWelcomeChat()];
+      state.activeChatId = state.chats[0].id;
+      state.pendingFiles = [];
+      saveChats();
+      clearLegacyChatStorage();
+      renderApp();
+      switchTab("chat");
+      messageInput.value = "";
+      resizeTextarea();
+      clearAllServerCache();
+    }
+
+    function selectChat(chatId) {
+      if (!state.chats.some((chat) => chat.id === chatId)) {
+        return;
+      }
+      invalidatePendingRequest();
+      state.activeChatId = chatId;
+      saveChats();
+      renderApp();
+      switchTab("chat");
+    }
+
+    function exportCurrentChat() {
+      const activeChat = getActiveChat();
+      if (!activeChat) {
+        return;
+      }
+
+      const text = activeChat.messages
+        .map((message) => `[${formatTime(message.timestamp)}] ${message.role === "user" ? "Tú" : "Mecánico AI"}: ${message.content}`)
+        .join("\n\n");
+
+      navigator.clipboard.writeText(text)
+        .then(() => window.alert("Chat copiado al portapapeles."))
+        .catch(() => window.alert("No se pudo copiar el chat."));
+    }
+
+    function renameCurrentChat() {
+      const activeChat = getActiveChat();
+      if (!activeChat) {
+        return;
+      }
+
+      const nextTitle = window.prompt("Nuevo nombre para este chat:", activeChat.title);
+      if (!nextTitle) {
+        return;
+      }
+
+      activeChat.title = nextTitle.trim() || activeChat.title;
+      touchChat(activeChat);
+      renderApp();
+    }
+
+    async function fetchAssistantReply(userMessage, attachments = []) {
+      const activeChat = getActiveChat();
+      if (!activeChat) {
+        throw new Error("No hay un chat activo.");
+      }
+
+      const response = await fetch(CHAT_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          clientId: state.clientId,
+          chatId: activeChat.id,
+          message: userMessage,
+          attachments
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error?.message || "No se pudo completar la consulta con el servidor.");
+      }
+
+      const text = (
+        data?.reply ||
+        data?.message ||
+        data?.output_text ||
+        data?.choices?.[0]?.message?.content ||
+        ""
+      ).trim();
+      if (!text) {
+        throw new Error("La respuesta llegó vacía.");
+      }
+
+      return text;
+    }
+
+    function getFriendlyError(error) {
+      const base = error instanceof Error ? error.message : "Ocurrió un error inesperado.";
+      return `No me dejó responder el servicio. Revisa tu conexión o la disponibilidad del servidor. Detalle: ${base}`;
+    }
+
+    function normalizeOutgoingContent(rawText) {
+      const normalized = String(rawText || "").replace(/\r\n?/g, "\n").trim();
+      if (!normalized) {
+        return "";
+      }
+
+      const lines = normalized.split("\n");
+      const singleCharLines = lines.length >= 3 && lines.every((line) => line.trim().length <= 1);
+      if (singleCharLines) {
+        const joined = lines.map((line) => line.trim()).join("");
+        return joined || normalized;
+      }
+
+      return normalized;
+    }
+
+    async function sendMessage() {
+      const activeChat = getActiveChat();
+      if (!activeChat) {
+        return;
+      }
+
+      const content = normalizeOutgoingContent(messageInput.value);
+      const hasFiles = state.pendingFiles.length > 0;
+      if (state.isLoading) {
+        return;
+      }
+
+      if (!content && !hasFiles) {
+        startVoiceInput();
+        return;
+      }
+
+      let attachmentPayload = [];
+      try {
+        attachmentPayload = await buildAttachmentPayload(state.pendingFiles);
+      } catch (error) {
+        addMessage("assistant", getFriendlyError(error), { speak: false });
+        return;
+      }
+
+      const attachmentSummary = state.pendingFiles.length
+        ? `\n\nAdjuntos:\n${state.pendingFiles.map((file) => `- ${file.name}`).join("\n")}`
+        : "";
+      const userDisplayMessage = `${content || "Mensaje con archivos"}${attachmentSummary}`;
+      const requestChatId = activeChat.id;
+      const requestToken = state.requestToken;
+
+      addMessage("user", userDisplayMessage, { speak: false, chatId: requestChatId });
+      messageInput.value = "";
+      state.pendingFiles = [];
+      resizeTextarea();
+      state.isLoading = true;
+      renderMessages();
+      renderAttachmentPreview();
+
+      try {
+        const reply = await fetchAssistantReply(content, attachmentPayload);
+        if (requestToken !== state.requestToken) {
+          return;
+        }
+        addMessage("assistant", reply, { chatId: requestChatId });
+      } catch (error) {
+        if (requestToken === state.requestToken) {
+          addMessage("assistant", getFriendlyError(error), { speak: false, chatId: requestChatId });
+        }
+      } finally {
+        if (requestToken === state.requestToken) {
+          state.isLoading = false;
+          renderMessages();
+          messageInput.focus();
+        }
+      }
+    }
+
+    function refreshCurrentChat() {
+      const freshChats = loadChats();
+      const stillExists = freshChats.some((chat) => chat.id === state.activeChatId);
+      state.chats = freshChats;
+      if (!stillExists) {
+        state.activeChatId = freshChats[0]?.id || "";
+      }
+      renderApp();
+      switchTab("chat");
+    }
+
+    tabChatBtn.addEventListener("click", () => switchTab("chat"));
+    tabHistoryBtn.addEventListener("click", () => switchTab("history"));
+    tabSettingsBtn.addEventListener("click", () => switchTab("settings"));
+
+    newChatBtn.addEventListener("click", createChat);
+    newChatFromHistoryBtn.addEventListener("click", createChat);
+    newChatFromSettingsBtn.addEventListener("click", createChat);
+    refreshChatBtn.addEventListener("click", refreshCurrentChat);
+    refreshFromSettingsBtn.addEventListener("click", refreshCurrentChat);
+    voiceToggleBtn.addEventListener("click", () => {
+      state.voiceOutputEnabled = !state.voiceOutputEnabled;
+      localStorage.setItem(STORAGE_KEYS.voiceOutput, String(state.voiceOutputEnabled));
+      syncVoiceControls();
+    });
+
+    sendBtn.addEventListener("click", sendMessage);
+    messageInput.addEventListener("input", resizeTextarea);
+    messageInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    attachmentBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (event) => {
+      const files = Array.from(event.target.files || []);
+      if (!files.length) {
+        return;
+      }
+      state.pendingFiles.push(...files);
+      fileInput.value = "";
+      renderAttachmentPreview();
+      updateComposerState();
+    });
+    attachmentPreview.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove-file]");
+      if (!button) {
+        return;
+      }
+      const index = Number(button.getAttribute("data-remove-file"));
+      if (!Number.isNaN(index)) {
+        state.pendingFiles.splice(index, 1);
+        renderAttachmentPreview();
+        updateComposerState();
+      }
+    });
+
+    exportChatBtn.addEventListener("click", exportCurrentChat);
+    renameChatBtn.addEventListener("click", renameCurrentChat);
+    clearCurrentChatBtn.addEventListener("click", () => {
+      if (window.confirm("¿Quieres borrar el chat actual?")) {
+        resetCurrentChat();
+      }
+    });
+    clearAllChatsBtn.addEventListener("click", () => {
+      if (window.confirm("¿Quieres borrar todo el historial de chats?")) {
+        clearAllChats();
+      }
+    });
+
+    historyList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-chat-id]");
+      if (!button) {
+        return;
+      }
+      selectChat(button.getAttribute("data-chat-id"));
+    });
+
+    quickStartActions.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-quick-action]");
+      if (!button) {
+        return;
+      }
+
+      const action = button.getAttribute("data-quick-action");
+      if (action === "diagnosticar") {
+        messageInput.value = "Necesito diagnóstico: te paso año, marca, modelo y síntoma principal.";
+      } else if (action === "refaccion") {
+        messageInput.value = "Ayúdame a identificar la refacción correcta y un costo aproximado.";
+      } else if (action === "horario") {
+        messageInput.value = "Quiero revisar disponibilidad y horario de refacciones para esta reparación.";
+      }
+
+      switchTab("chat");
+      resizeTextarea();
+      sendMessage();
+    });
+
+    darkModeToggle.addEventListener("click", () => {
+      state.colorMode = state.colorMode === "dark" ? "light" : "dark";
+      saveAppearance();
+      applyAppearance();
+      renderApp();
+    });
+
+    countryThemeGrid.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-theme-key]");
+      if (!button) {
+        return;
+      }
+      state.countryTheme = button.getAttribute("data-theme-key");
+      saveAppearance();
+      applyAppearance();
+      renderApp();
+    });
+
+    saveChats();
+    applyAppearance();
+    resizeTextarea();
+    updateComposerState();
+    renderApp();
+  </script>
+</body>
+</html>
