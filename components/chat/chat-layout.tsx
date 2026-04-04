@@ -18,6 +18,10 @@ const PREF_KEYS = {
   activeSessionId: "mecanico-active-session-id"
 } as const;
 
+function getDefaultSessionTitle(language: AppLanguage) {
+  return language === "es" ? "Nuevo chat" : "New chat";
+}
+
 async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -89,7 +93,7 @@ export function ChatLayout() {
         role: "assistant",
         text:
           language === "es"
-            ? "Orale jefe, soy Mecanico AI. Dime el ano, la marca, el modelo y la falla detallada del vehiculo."
+            ? "Órale jefe, soy Mecánico AI. Dime el año, la marca, el modelo y la falla detallada del vehículo."
             : "Hey boss, I am Mecanico AI. Tell me the year, make, model, and the detailed issue.",
         createdAt: ""
       }
@@ -99,7 +103,7 @@ export function ChatLayout() {
   const quickReplies = useMemo(
     () =>
       language === "es"
-        ? ["Subir foto del problema", "Diagnosticar ruido extrano", "Revisar bateria", "Codigo de error OBD"]
+        ? ["Subir foto del problema", "Diagnosticar ruido extraño", "Revisar batería", "Código de error OBD"]
         : ["Upload problem photo", "Diagnose strange noise", "Check battery", "OBD error code"],
     [language]
   );
@@ -165,7 +169,7 @@ export function ChatLayout() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "No se pudo iniciar la sesion del dispositivo.");
+          setError(err instanceof Error ? err.message : "No se pudo iniciar la sesión del dispositivo.");
         }
       } finally {
         if (!cancelled) {
@@ -214,7 +218,7 @@ export function ChatLayout() {
 
     const messageText =
       language === "es" && payload.message === "Subir foto del problema"
-        ? "Aqui esta la foto del problema."
+        ? "Aquí está la foto del problema."
         : payload.message;
 
     const now = new Date().toISOString();
@@ -323,14 +327,14 @@ export function ChatLayout() {
       return;
     }
 
-    const confirmed = window.confirm(language === "es" ? "Quieres borrar el chat actual?" : "Clear current chat?");
+    const confirmed = window.confirm(language === "es" ? "¿Quieres borrar el chat actual?" : "Clear current chat?");
     if (!confirmed) {
       return;
     }
 
     updateActiveSession((session) => ({
       ...session,
-      title: "Nuevo chat",
+      title: getDefaultSessionTitle(language),
       messages: [],
       updatedAt: new Date().toISOString()
     }));
@@ -339,7 +343,7 @@ export function ChatLayout() {
   }
 
   async function handleClearAll() {
-    const confirmed = window.confirm(language === "es" ? "Quieres borrar todo el historial?" : "Clear all history?");
+    const confirmed = window.confirm(language === "es" ? "¿Quieres borrar todo el historial?" : "Clear all history?");
     if (!confirmed) {
       return;
     }
@@ -364,7 +368,9 @@ export function ChatLayout() {
       <div className="mx-auto flex min-h-screen w-full max-w-[520px] bg-[var(--wa-bg-sidebar)] md:max-w-[640px] lg:max-w-[820px]">
         <div className="wa-phone-shell relative flex min-h-screen min-w-0 flex-1 flex-col shadow-[var(--wa-shadow-md)]">
           {loadingInit ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-[var(--wa-text-secondary)]">Cargando sesion...</div>
+            <div className="flex flex-1 items-center justify-center text-sm text-[var(--wa-text-secondary)]">
+              {language === "es" ? "Cargando sesión..." : "Loading session..."}
+            </div>
           ) : (
             <ChatPanel
               title={activeSession?.title || "Mecanico AI"}
@@ -388,7 +394,7 @@ export function ChatLayout() {
           {error ? <div className="mx-4 mb-2 rounded-3xl bg-red-600 px-4 py-2 text-sm text-white shadow-lg">{error}</div> : null}
           {installLoading ? (
             <div className="mx-4 mb-2 rounded-3xl bg-[var(--wa-control-bg)] px-4 py-2 text-sm text-[var(--wa-text-secondary)] shadow-sm">
-              Protegiendo la sesion del dispositivo...
+              {language === "es" ? "Protegiendo la sesión del dispositivo..." : "Securing device session..."}
             </div>
           ) : null}
         </div>
@@ -402,9 +408,9 @@ export function ChatLayout() {
           >
             <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-gray-300 md:hidden" />
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-base font-semibold text-[var(--wa-text-primary)]">Historial</p>
+              <p className="text-base font-semibold text-[var(--wa-text-primary)]">{language === "es" ? "Historial" : "History"}</p>
               <Button type="button" variant="secondary" onClick={() => void handleNewThread()}>
-                Nuevo chat
+                {language === "es" ? "Nuevo chat" : "New chat"}
               </Button>
             </div>
             <div className="max-h-[60vh] overflow-y-auto rounded-[24px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)]">
@@ -436,22 +442,35 @@ export function ChatLayout() {
             <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-gray-300 md:hidden" />
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" onClick={() => void handleNewThread()}>
-                Nuevo chat
+                {language === "es" ? "Nuevo chat" : "New chat"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setVehicleModalOpen(true)}>
-                Vehiculo
+                {language === "es" ? "Vehículo" : "Vehicle"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setHistoryOpen(true);
+                }}
+              >
+                {language === "es" ? "Historial" : "History"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => void handleRefresh()}>
+                {language === "es" ? "Refrescar" : "Refresh"}
               </Button>
               <Button type="button" variant="secondary" onClick={handleToggleLanguage}>
-                {language === "es" ? "English" : "Espanol"}
+                {language === "es" ? "English" : "Español"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setIsDarkMode((prev) => !prev)}>
-                {isDarkMode ? "Tema claro" : "Tema oscuro"}
+                {language === "es" ? (isDarkMode ? "Tema claro" : "Tema oscuro") : isDarkMode ? "Light mode" : "Dark mode"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => void handleClearCurrent()}>
-                Borrar chat
+                {language === "es" ? "Borrar chat" : "Clear chat"}
               </Button>
               <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={() => void handleClearAll()}>
-                Borrar historial
+                {language === "es" ? "Borrar historial" : "Clear history"}
               </Button>
             </div>
           </div>

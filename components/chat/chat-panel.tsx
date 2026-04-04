@@ -40,18 +40,46 @@ export function ChatPanel({
   onToggleDarkMode,
   onOpenMenu
 }: Props) {
+  const labels =
+    language === "es"
+      ? {
+          title: title || "Mecánico AI",
+          statusShort: "En línea",
+          statusLong: "Tu compañero en el taller",
+          history: "Abrir historial",
+          vehicle: "Datos del vehículo",
+          newChat: "Nuevo chat",
+          language: "Cambiar idioma",
+          darkMode: isDarkMode ? "Activar tema claro" : "Activar tema oscuro",
+          refresh: "Refrescar chat",
+          menu: "Abrir menú"
+        }
+      : {
+          title: title || "Mecanico AI",
+          statusShort: "Online",
+          statusLong: "Your shop companion",
+          history: "Open history",
+          vehicle: "Vehicle details",
+          newChat: "New chat",
+          language: "Change language",
+          darkMode: isDarkMode ? "Use light mode" : "Use dark mode",
+          refresh: "Refresh chat",
+          menu: "Open menu"
+        };
+
   return (
     <section className="flex min-h-0 flex-1 flex-col bg-[var(--wa-bg-app)]">
-      <header className="wa-header-gradient sticky top-0 z-20 flex items-center gap-3 px-4 py-3 text-white shadow-md">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      <header className="wa-header-gradient sticky top-0 z-20 flex items-center gap-2 px-3 py-3 text-white shadow-md md:gap-3 md:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-[18px] bg-white text-2xl shadow-inner">
             <Image src="/mecanico-logo.png" alt="Mecanico AI" width={36} height={36} className="h-9 w-9 object-cover" />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-lg font-semibold">{title || "Mecanico AI"}</div>
-            <div className="flex items-center gap-1 text-xs opacity-90">
+            <div className="truncate text-base font-semibold md:text-lg">{labels.title}</div>
+            <div className="flex items-center gap-1 text-[11px] opacity-90 md:text-xs">
               <div className="h-2 w-2 rounded-full bg-[#8bc34a] animate-pulse" />
-              En linea - Tu companero en el taller
+              <span>{labels.statusShort}</span>
+              <span className="hidden sm:inline">• {labels.statusLong}</span>
             </div>
           </div>
         </div>
@@ -59,9 +87,9 @@ export function ChatPanel({
         <button
           type="button"
           onClick={onOpenHistory}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20"
-          aria-label="Abrir historial"
-          title="Abrir historial"
+          className="hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20 md:flex"
+          aria-label={labels.history}
+          title={labels.history}
         >
           {"\u21BA"}
         </button>
@@ -69,9 +97,9 @@ export function ChatPanel({
         <button
           type="button"
           onClick={onOpenIntake}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20"
-          aria-label="Datos del vehiculo"
-          title="Datos del vehiculo"
+          className="hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20 md:flex"
+          aria-label={labels.vehicle}
+          title={labels.vehicle}
         >
           {"\uD83D\uDE97"}
         </button>
@@ -81,9 +109,9 @@ export function ChatPanel({
           onClick={() => {
             void onNewThread();
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl transition hover:bg-white/20"
-          aria-label="Nuevo chat"
-          title="Nuevo chat"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20 md:h-9 md:w-9 md:text-xl"
+          aria-label={labels.newChat}
+          title={labels.newChat}
         >
           +
         </button>
@@ -91,9 +119,9 @@ export function ChatPanel({
         <button
           type="button"
           onClick={onToggleLanguage}
-          className="flex items-center rounded-full bg-white/14 px-3 py-1.5 text-xs font-medium transition hover:bg-white/22"
-          aria-label="Cambiar idioma"
-          title="Cambiar idioma"
+          className="flex items-center rounded-full bg-white/14 px-2.5 py-1.5 text-[11px] font-medium transition hover:bg-white/22 md:px-3 md:text-xs"
+          aria-label={labels.language}
+          title={labels.language}
         >
           <span className="mr-1 text-base">{language === "es" ? "\uD83C\uDDF2\uD83C\uDDFD" : "\uD83C\uDDFA\uD83C\uDDF8"}</span>
           <span>{language === "es" ? "ES" : "EN"}</span>
@@ -102,9 +130,9 @@ export function ChatPanel({
         <button
           type="button"
           onClick={onToggleDarkMode}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20"
-          aria-label={isDarkMode ? "Activar tema claro" : "Activar tema oscuro"}
-          title={isDarkMode ? "Activar tema claro" : "Activar tema oscuro"}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-base transition hover:bg-white/20 md:h-9 md:w-9 md:text-lg"
+          aria-label={labels.darkMode}
+          title={labels.darkMode}
         >
           {isDarkMode ? "\u2600" : "\u263E"}
         </button>
@@ -114,9 +142,9 @@ export function ChatPanel({
           onClick={() => {
             void onRefresh();
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20"
-          aria-label="Refrescar chat"
-          title="Refrescar chat"
+          className="hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20 md:flex"
+          aria-label={labels.refresh}
+          title={labels.refresh}
         >
           {"\u27F3"}
         </button>
@@ -124,9 +152,9 @@ export function ChatPanel({
         <button
           type="button"
           onClick={onOpenMenu}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl transition hover:bg-white/20"
-          aria-label="Abrir menu"
-          title="Abrir menu"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20 md:h-9 md:w-9 md:text-xl"
+          aria-label={labels.menu}
+          title={labels.menu}
         >
           {"\u22EE"}
         </button>

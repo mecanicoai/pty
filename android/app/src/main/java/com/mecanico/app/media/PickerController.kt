@@ -81,7 +81,7 @@ class PickerController(
             val limited = uris.take(maxFilesRequested)
             val attachmentsJson = buildAttachmentsJson(activity.contentResolver, limited)
             onAttachmentsJsonReady(attachmentsJson)
-        } catch (error) {
+        } catch (error: Exception) {
             onError(error.message ?: "No se pudieron adjuntar los archivos.")
         }
     }
@@ -115,7 +115,7 @@ class PickerController(
             val photoUri = FileProvider.getUriForFile(activity, authority, photoFile)
             pendingCameraUri = photoUri
             captureImageLauncher.launch(photoUri)
-        } catch (error) {
+        } catch (error: Exception) {
             onError("No se pudo abrir la camara.")
         }
     }

@@ -15,7 +15,7 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "MECANICO_BASE_URL", "\"https://your-deployed-mecanico-app.example\"")
+        buildConfigField("String", "MECANICO_BASE_URL", "\"https://pty-dun.vercel.app\"")
     }
 
     buildTypes {

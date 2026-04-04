@@ -58,7 +58,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
         </div>
       ) : null}
 
-      <div className={`${isUser ? "message-bubble-user" : "message-bubble-bot"} max-w-[75%] px-4 py-3`}>
+      <div className={`${isUser ? "message-bubble-user" : "message-bubble-bot"} max-w-[82%] px-4 py-3 md:max-w-[75%]`}>
         {!isUser ? (
           <div className="mb-2 flex justify-end">
             <button
@@ -83,7 +83,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
             </div>
             <Section title="Causas probables" items={message.diagnostic.likely_causes} />
             <Section title="Causas posibles" items={message.diagnostic.possible_causes} />
-            <Section title="Riesgos criticos" items={message.diagnostic.safety_critical} />
+            <Section title="Riesgos críticos" items={message.diagnostic.safety_critical} />
             <Section title="Siguientes pruebas" items={message.diagnostic.next_steps} />
             <Section title="Herramientas" items={message.diagnostic.tools_needed} />
             <Section title="Preguntas" items={message.diagnostic.follow_up_questions} />

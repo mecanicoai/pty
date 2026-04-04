@@ -179,7 +179,7 @@ export function Composer({ disabled = false, language, onSend }: Props) {
         throw new Error("Solo puedes enviar hasta 4 archivos por mensaje.");
       }
       await onSend({
-        message: text || (language === "es" ? "Aqui va la foto o documento del problema." : "Here is the photo or document."),
+        message: text || (language === "es" ? "Aquí va la foto o documento del problema." : "Here is the photo or document."),
         attachments
       });
       setValue("");
@@ -189,7 +189,7 @@ export function Composer({ disabled = false, language, onSend }: Props) {
         fileInputRef.current.value = "";
       }
     } catch (error) {
-      setLocalError(error instanceof Error ? error.message : "No se pudo enviar el mensaje.");
+      setLocalError(error instanceof Error ? error.message : language === "es" ? "No se pudo enviar el mensaje." : "Could not send the message.");
     } finally {
       setSending(false);
     }
@@ -239,8 +239,8 @@ export function Composer({ disabled = false, language, onSend }: Props) {
           className={`flex h-11 w-11 items-center justify-center rounded-2xl text-2xl text-white shadow-lg transition active:scale-95 ${
             recording ? "bg-[#bf6927]" : "bg-[var(--mech-orange)] hover:bg-[#d87524]"
           }`}
-          aria-label="Microfono"
-          title="Microfono"
+          aria-label={language === "es" ? "Micrófono" : "Microphone"}
+          title={language === "es" ? "Micrófono" : "Microphone"}
         >
           {"\uD83C\uDFA4"}
         </button>
@@ -274,8 +274,8 @@ export function Composer({ disabled = false, language, onSend }: Props) {
             fileInputRef.current?.click();
           }}
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--wa-control-bg-soft)] text-2xl text-[var(--taller-green)] shadow-sm transition hover:bg-[var(--wa-control-bg)]"
-          aria-label="Adjuntar"
-          title="Adjuntar"
+          aria-label={language === "es" ? "Adjuntar" : "Attach"}
+          title={language === "es" ? "Adjuntar" : "Attach"}
         >
           {"\uD83D\uDCCE"}
         </button>
@@ -291,7 +291,7 @@ export function Composer({ disabled = false, language, onSend }: Props) {
                 void submit();
               }
             }}
-            placeholder={language === "es" ? "Que le pasa al carro, jefe?" : "What is wrong with the vehicle?"}
+            placeholder={language === "es" ? "¿Qué le pasa al carro, jefe?" : "What is wrong with the vehicle?"}
             className="h-[50px] w-full rounded-[999px] border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-5 text-[17px] text-[var(--wa-control-text)] outline-none ring-0 placeholder:text-[var(--wa-control-placeholder)] focus:border-[var(--taller-green)] focus:shadow-[0_0_0_3px_rgba(23,156,99,0.12)]"
           />
         </div>
@@ -303,8 +303,8 @@ export function Composer({ disabled = false, language, onSend }: Props) {
           }}
           disabled={disabled || sending}
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--taller-green)] text-2xl text-white shadow-lg transition hover:bg-[#138655] active:scale-95 disabled:opacity-60"
-          aria-label="Enviar"
-          title="Enviar"
+          aria-label={language === "es" ? "Enviar" : "Send"}
+          title={language === "es" ? "Enviar" : "Send"}
         >
           {sending ? "..." : ">"}
         </button>
