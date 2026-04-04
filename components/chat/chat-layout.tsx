@@ -2,9 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { PricingSheet } from "@/components/billing/pricing-sheet";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import type { UiMessage } from "@/components/chat/types";
-import { clearStoredInstallSession, ensureInstallToken, registerNativeInstallBridge } from "@/lib/chat/install-auth";
+import { createEmptyUsageSnapshot, PLAN_DEFINITIONS, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
+import {
+  clearStoredInstallSession,
+  ensureInstallToken,
+  getStoredPlan,
+  getStoredUsage,
+  registerNativeInstallBridge,
+  storeUsageSnapshot
+} from "@/lib/chat/install-auth";
 import { VehicleIntakeDrawer } from "@/components/intake/vehicle-intake-drawer";
 import { createLocalSession, loadLocalSessions, saveLocalSessions, type LocalChatSession } from "@/lib/chat/local-store";
 import { SessionList } from "@/components/sidebar/session-list";
@@ -22,6 +31,26 @@ function getDefaultSessionTitle(language: AppLanguage) {
   return language === "es" ? "Nuevo chat" : "New chat";
 }
 
+function getPlanUsageLabel(language: AppLanguage, plan: SubscriptionPlan, usage: PlanUsageSnapshot) {
+  if (language === "en") {
+    if (plan === "free") {
+      return `${usage.totalRemaining ?? 0} of 5 free questions left`;
+    }
+    if (plan === "basic") {
+      return `${usage.dayRemaining ?? 0} of 10 questions left today`;
+    }
+    return "Unlimited use with voice and uploads";
+  }
+
+  if (plan === "free") {
+    return `${usage.totalRemaining ?? 0} de 5 preguntas gratis restantes`;
+  }
+  if (plan === "basic") {
+    return `${usage.dayRemaining ?? 0} de 10 preguntas restantes hoy`;
+  }
+  return "Uso ilimitado con voz y archivos";
+}
+
 async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -36,10 +65,12 @@ async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
       status?: number;
       code?: string;
       requestId?: string;
+      details?: unknown;
     };
     error.status = response.status;
     error.code = typeof data.code === "string" ? data.code : undefined;
     error.requestId = typeof data.requestId === "string" ? data.requestId : undefined;
+    error.details = data.details;
     throw error;
   }
   return data as T;
@@ -74,8 +105,11 @@ export function ChatLayout() {
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const [installReady, setInstallReady] = useState(false);
   const [installLoading, setInstallLoading] = useState(true);
+  const [plan, setPlan] = useState<SubscriptionPlan>("free");
+  const [usage, setUsage] = useState<PlanUsageSnapshot>(createEmptyUsageSnapshot("free"));
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === activeSessionId) ?? null,
@@ -113,6 +147,8 @@ export function ChatLayout() {
 
     const nextLanguage = savedLanguage === "en" ? "en" : "es";
     setLanguage(nextLanguage);
+    setPlan(getStoredPlan());
+    setUsage(getStoredUsage());
 
     if (localSessions.length) {
       setSessions(localSessions);
@@ -158,6 +194,8 @@ export function ChatLayout() {
         if (!cancelled) {
           setInstallReady(true);
           setError(null);
+          setPlan(getStoredPlan());
+          setUsage(getStoredUsage());
         }
       } catch (err) {
         if (!cancelled) {
@@ -177,14 +215,24 @@ export function ChatLayout() {
         setInstallReady(true);
         setInstallLoading(false);
         setError(null);
+        setPlan(getStoredPlan());
+        setUsage(getStoredUsage());
+      }
+    };
+
+    const handleUsageUpdated = () => {
+      if (!cancelled) {
+        setUsage(getStoredUsage());
       }
     };
 
     window.addEventListener("mecanico-install-token-ready", handleTokenReady);
+    window.addEventListener("mecanico-install-usage-updated", handleUsageUpdated);
 
     return () => {
       cancelled = true;
       window.removeEventListener("mecanico-install-token-ready", handleTokenReady);
+      window.removeEventListener("mecanico-install-usage-updated", handleUsageUpdated);
     };
   }, []);
 
@@ -279,6 +327,10 @@ export function ChatLayout() {
         createdAt: new Date().toISOString()
       };
 
+      setPlan(response.plan);
+      setUsage(response.usage);
+      storeUsageSnapshot(response.usage);
+
       updateActiveSession((session) => ({
         ...session,
         language,
@@ -288,6 +340,16 @@ export function ChatLayout() {
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo enviar el mensaje.");
+      const code = (err as { code?: string } | undefined)?.code;
+      const details = (err as { details?: { usage?: PlanUsageSnapshot } } | undefined)?.details;
+      if (details?.usage) {
+        setUsage(details.usage);
+        setPlan(details.usage.plan);
+        storeUsageSnapshot(details.usage);
+      }
+      if (code === "plan_limit_reached" || code === "plan_feature_locked") {
+        setPricingOpen(true);
+      }
       updateActiveSession((session) => ({
         ...session,
         messages: session.messages.filter((message) => message.id !== optimisticUser.id)
@@ -355,6 +417,21 @@ export function ChatLayout() {
     }));
   }
 
+  function handleLockedFeature(feature: "voice" | "attachments") {
+    setError(
+      language === "es"
+        ? feature === "voice"
+          ? "La entrada por voz esta disponible solo en Pro."
+          : "Las fotos y archivos estan disponibles solo en Pro."
+        : feature === "voice"
+          ? "Voice input is only available on Pro."
+          : "Photos and documents are only available on Pro."
+    );
+    setPricingOpen(true);
+  }
+
+  const usageLabel = getPlanUsageLabel(language, plan, usage);
+
   return (
     <main className="wa-app-shell min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-[520px] bg-[var(--wa-bg-sidebar)] md:max-w-[640px] lg:max-w-[820px]">
@@ -371,6 +448,8 @@ export function ChatLayout() {
               messages={displayedMessages}
               loading={loadingReply}
               disabled={!installReady}
+              plan={plan}
+              usageLabel={usageLabel}
               onSend={handleSend}
               onNewThread={handleNewThread}
               onOpenHistory={() => setHistoryOpen(true)}
@@ -378,6 +457,8 @@ export function ChatLayout() {
               onRefresh={handleRefresh}
               onToggleLanguage={handleToggleLanguage}
               onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
+              onOpenPlans={() => setPricingOpen(true)}
+              onLockedFeature={handleLockedFeature}
               onOpenMenu={() => setMenuOpen(true)}
             />
           )}
@@ -431,6 +512,15 @@ export function ChatLayout() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-gray-300 md:hidden" />
+            <div className="mb-4 rounded-[20px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)] px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-[var(--wa-text-secondary)]">
+                {language === "es" ? "Plan actual" : "Current plan"}
+              </p>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-base font-semibold text-[var(--wa-text-primary)]">{PLAN_DEFINITIONS[plan].name}</p>
+                <p className="text-right text-sm text-[var(--wa-text-secondary)]">{usageLabel}</p>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" onClick={() => void handleNewThread()}>
                 {language === "es" ? "Nuevo chat" : "New chat"}
@@ -457,6 +547,16 @@ export function ChatLayout() {
               <Button type="button" variant="secondary" onClick={() => setIsDarkMode((prev) => !prev)}>
                 {language === "es" ? (isDarkMode ? "Tema claro" : "Tema oscuro") : isDarkMode ? "Light mode" : "Dark mode"}
               </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setPricingOpen(true);
+                }}
+              >
+                {language === "es" ? "Planes" : "Plans"}
+              </Button>
               <Button type="button" variant="secondary" onClick={() => void handleClearCurrent()}>
                 {language === "es" ? "Borrar chat" : "Clear chat"}
               </Button>
@@ -467,6 +567,14 @@ export function ChatLayout() {
           </div>
         </div>
       ) : null}
+
+      <PricingSheet
+        open={pricingOpen}
+        language={language}
+        currentPlan={plan}
+        usage={usage}
+        onClose={() => setPricingOpen(false)}
+      />
 
       <VehicleIntakeDrawer
         open={vehicleModalOpen}

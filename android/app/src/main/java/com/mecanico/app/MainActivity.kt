@@ -6,10 +6,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
-import androidx.activity.enableEdgeToEdge
-import androidx.core.graphics.Insets
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.mecanico.app.bridge.MecanicoAndroidBridge
 import com.mecanico.app.databinding.ActivityMainBinding
@@ -31,7 +27,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -98,13 +93,6 @@ class MainActivity : ComponentActivity() {
         webView.settings.allowFileAccess = false
         webView.settings.allowContentAccess = true
         webView.settings.mediaPlaybackRequiresUserGesture = true
-        webView.clipToPadding = false
-
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
-            val systemBars: Insets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(0, systemBars.top, 0, systemBars.bottom)
-            insets
-        }
 
         webView.addJavascriptInterface(bridge, "MecanicoAndroid")
         webView.webViewClient = object : WebViewClient() {

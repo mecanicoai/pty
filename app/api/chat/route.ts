@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { runMecanicoService } from "@/lib/openai/mecanico-service";
 import { ApiError, isApiError } from "@/lib/security/api-error";
+import { assertPlanAllowsAttachments, assertPlanAllowsChat, recordPlanUsage } from "@/lib/security/plan-usage";
 import { assertChatRateLimit } from "@/lib/security/rate-limit";
 import { hasVerifiedAccess, isVerifiedAccessRequired } from "@/lib/security/install-tokens";
 import { createRequestId, getClientIp, requireInstallAuth } from "@/lib/security/request";
@@ -73,6 +74,8 @@ export async function POST(request: NextRequest) {
     const rateLimit = assertChatRateLimit(auth.installId);
     const body = await request.json().catch(() => ({}));
     const parsed = chatRequestSchema.parse(body);
+    assertPlanAllowsAttachments(auth.plan, auth.installId, parsed.attachments.length);
+    assertPlanAllowsChat(auth.plan, auth.installId);
 
     if (parsed.sessionId && parsed.sessionId.length > 120) {
       throw new ApiError({
@@ -98,6 +101,7 @@ export async function POST(request: NextRequest) {
       recentMessages,
       attachments: parsed.attachments
     });
+    const usage = recordPlanUsage(auth.plan, auth.installId);
 
     console.info(
       JSON.stringify({
@@ -107,6 +111,8 @@ export async function POST(request: NextRequest) {
         ip: getClientIp(request),
         durationMs: Date.now() - startedAt,
         model: completion.model,
+        plan: auth.plan,
+        planUsage: usage,
         usedWebSearch: completion.usedWebSearch,
         minuteRemaining: rateLimit.minuteRemaining,
         dayRemaining: rateLimit.dayRemaining
@@ -117,6 +123,8 @@ export async function POST(request: NextRequest) {
       {
         ...completion.parsed,
         used_web_search: completion.usedWebSearch,
+        plan: auth.plan,
+        usage,
         sessionId: parsed.sessionId,
         requestId
       },

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Composer } from "@/components/chat/composer";
 import { MessageList } from "@/components/chat/message-list";
 import type { UiMessage } from "@/components/chat/types";
+import type { SubscriptionPlan } from "@/lib/billing/plans";
 import type { AppLanguage, ChatAttachment } from "@/types/chat";
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
   messages: UiMessage[];
   loading: boolean;
   disabled?: boolean;
+  plan: SubscriptionPlan;
+  usageLabel: string;
   onSend: (payload: { message: string; attachments: ChatAttachment[] }) => Promise<void>;
   onNewThread: () => Promise<void>;
   onOpenHistory: () => void;
@@ -19,6 +22,8 @@ interface Props {
   onRefresh: () => Promise<void>;
   onToggleLanguage: () => void;
   onToggleDarkMode: () => void;
+  onOpenPlans: () => void;
+  onLockedFeature: (feature: "voice" | "attachments") => void;
   onOpenMenu: () => void;
 }
 
@@ -29,6 +34,8 @@ export function ChatPanel({
   messages,
   loading,
   disabled = false,
+  plan,
+  usageLabel,
   onSend,
   onNewThread,
   onOpenHistory,
@@ -36,6 +43,8 @@ export function ChatPanel({
   onRefresh,
   onToggleLanguage,
   onToggleDarkMode,
+  onOpenPlans,
+  onLockedFeature,
   onOpenMenu
 }: Props) {
   const labels =
@@ -44,6 +53,7 @@ export function ChatPanel({
           title: title || "Mecánico AI",
           statusShort: "En línea",
           statusLong: "Tu compañero en el taller",
+          planBadge: plan === "free" ? "Gratis" : plan === "basic" ? "Básico" : "Pro",
           history: "Abrir historial",
           vehicle: "Datos del vehículo",
           newChat: "Nuevo chat",
@@ -56,6 +66,7 @@ export function ChatPanel({
           title: title || "Mecanico AI",
           statusShort: "Online",
           statusLong: "Your shop companion",
+          planBadge: plan === "free" ? "Free" : plan === "basic" ? "Basic" : "Pro",
           history: "Open history",
           vehicle: "Vehicle details",
           newChat: "New chat",
@@ -158,9 +169,29 @@ export function ChatPanel({
         </button>
       </header>
 
+      <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
+        <button
+          type="button"
+          onClick={onOpenPlans}
+          className="inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-xs font-medium text-[var(--wa-control-text)] shadow-sm transition hover:bg-[var(--wa-control-bg-soft)]"
+        >
+          <span className="rounded-full bg-[var(--wa-control-bg-soft)] px-2 py-0.5 text-[11px] uppercase tracking-wide text-[var(--wa-text-secondary)]">
+            {labels.planBadge}
+          </span>
+          <span className="truncate">{usageLabel}</span>
+        </button>
+      </div>
+
       <MessageList messages={messages} loading={loading} />
 
-      <Composer onSend={onSend} disabled={loading || disabled} language={language} />
+      <Composer
+        onSend={onSend}
+        disabled={loading || disabled}
+        language={language}
+        canUseVoice={plan === "pro"}
+        canUseAttachments={plan === "pro"}
+        onLockedFeature={onLockedFeature}
+      />
     </section>
   );
 }

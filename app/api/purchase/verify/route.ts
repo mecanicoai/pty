@@ -1,9 +1,11 @@
+import { resolvePlanFromProductId } from "@/lib/billing/plans";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { verifyGooglePlayOneTimePurchase } from "@/lib/purchases/google-play";
 import { ApiError, isApiError } from "@/lib/security/api-error";
 import { issueInstallToken } from "@/lib/security/install-tokens";
+import { getPlanUsageSnapshot } from "@/lib/security/plan-usage";
 import { createRequestId } from "@/lib/security/request";
 import { purchaseVerificationSchema } from "@/lib/validation/purchase";
 
@@ -16,9 +18,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const parsed = purchaseVerificationSchema.parse(body);
     const verified = await verifyGooglePlayOneTimePurchase(parsed);
+    const plan = resolvePlanFromProductId(verified.productId);
     const issued = issueInstallToken({
       installId: parsed.installId,
       entitlement: "verified_purchase",
+      plan,
       expiresInSeconds: 60 * 60 * 24 * 30,
       purchase: {
         packageName: verified.packageName,
@@ -43,6 +47,8 @@ export async function POST(request: NextRequest) {
         token: issued.token,
         expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
         entitlement: issued.payload.entitlement,
+        plan: issued.payload.plan,
+        usage: getPlanUsageSnapshot(plan, parsed.installId),
         purchase: issued.payload.purchase,
         requestId
       },

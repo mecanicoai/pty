@@ -21,6 +21,9 @@ interface SendPayload {
 interface Props {
   disabled?: boolean;
   language: AppLanguage;
+  canUseVoice?: boolean;
+  canUseAttachments?: boolean;
+  onLockedFeature?: (feature: "voice" | "attachments") => void;
   onSend: (payload: SendPayload) => Promise<void>;
 }
 
@@ -41,7 +44,14 @@ function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
-export function Composer({ disabled = false, language, onSend }: Props) {
+export function Composer({
+  disabled = false,
+  language,
+  canUseVoice = true,
+  canUseAttachments = true,
+  onLockedFeature,
+  onSend
+}: Props) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -109,6 +119,11 @@ export function Composer({ disabled = false, language, onSend }: Props) {
 
   function toggleVoiceInput() {
     if (disabled || sending) {
+      return;
+    }
+
+    if (!canUseVoice) {
+      onLockedFeature?.("voice");
       return;
     }
 
@@ -252,6 +267,12 @@ export function Composer({ disabled = false, language, onSend }: Props) {
           className="hidden"
           accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
           onChange={(event) => {
+            if (!canUseAttachments) {
+              setLocalError(language === "es" ? "Las fotos y archivos solo estan en Pro." : "Attachments are only available on Pro.");
+              onLockedFeature?.("attachments");
+              event.target.value = "";
+              return;
+            }
             const selected = Array.from(event.target.files || []);
             if (selected.length) {
               setFiles((prev) => [...prev, ...selected].slice(0, Math.max(0, 4 - nativeAttachments.length)));
@@ -262,6 +283,11 @@ export function Composer({ disabled = false, language, onSend }: Props) {
         <button
           type="button"
           onClick={() => {
+            if (!canUseAttachments) {
+              setLocalError(language === "es" ? "Las fotos y archivos solo estan en Pro." : "Attachments are only available on Pro.");
+              onLockedFeature?.("attachments");
+              return;
+            }
             if (hasNativeAttachmentBridge()) {
               setLocalError(null);
               requestNativeAttachments({

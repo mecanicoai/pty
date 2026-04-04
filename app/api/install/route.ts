@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { getDefaultPlan } from "@/lib/billing/plans";
 import { ApiError, isApiError } from "@/lib/security/api-error";
 import { createIntegrityRequestHash } from "@/lib/security/integrity-challenge";
 import { issueInstallToken, issueIntegrityChallenge, isVerifiedAccessRequired } from "@/lib/security/install-tokens";
+import { getPlanUsageSnapshot } from "@/lib/security/plan-usage";
 import { createRequestId, getClientIp } from "@/lib/security/request";
 import { installRequestSchema } from "@/lib/validation/install";
 
@@ -16,6 +18,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const parsed = installRequestSchema.parse(body);
     const verificationRequired = isVerifiedAccessRequired();
+    const defaultPlan = getDefaultPlan();
 
     if (verificationRequired) {
       const issuedAtMs = Date.now();
@@ -29,6 +32,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           installId: parsed.installId,
+          plan: defaultPlan,
+          usage: getPlanUsageSnapshot(defaultPlan, parsed.installId),
           integrityRequired: true,
           integrity: {
             challengeToken: challenge.token,
@@ -45,6 +50,7 @@ export async function POST(request: NextRequest) {
     const issued = issueInstallToken({
       installId: parsed.installId,
       entitlement: "anonymous",
+      plan: defaultPlan,
       expiresInSeconds: 60 * 60 * 24 * 7
     });
 
@@ -55,6 +61,8 @@ export async function POST(request: NextRequest) {
         installId: parsed.installId,
         token: issued.token,
         expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
+        plan: issued.payload.plan,
+        usage: getPlanUsageSnapshot(issued.payload.plan, parsed.installId),
         integrityRequired: false,
         requestId
       },

@@ -1,10 +1,13 @@
+import { createEmptyUsageSnapshot, getDefaultPlan, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
 import type { InstallBootstrapResponse } from "@/types/api";
 
 const STORAGE_KEYS = {
   installId: "mecanico-install-id",
   installToken: "mecanico-install-token",
   installTokenExpiry: "mecanico-install-token-expiry",
-  installBootstrap: "mecanico-install-bootstrap"
+  installBootstrap: "mecanico-install-bootstrap",
+  installPlan: "mecanico-install-plan",
+  installUsage: "mecanico-install-usage"
 } as const;
 
 declare global {
@@ -37,9 +40,57 @@ export function getOrCreateInstallId() {
   return next;
 }
 
+function decodeTokenPayload(token: string): { plan?: SubscriptionPlan } | null {
+  const [encodedPayload] = token.split(".");
+  if (!encodedPayload) {
+    return null;
+  }
+
+  try {
+    const base64 = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const decoded = atob(padded);
+    return JSON.parse(decoded) as { plan?: SubscriptionPlan };
+  } catch {
+    return null;
+  }
+}
+
 export function clearStoredInstallSession() {
   window.localStorage.removeItem(STORAGE_KEYS.installToken);
   window.localStorage.removeItem(STORAGE_KEYS.installTokenExpiry);
+}
+
+export function getStoredPlan() {
+  const raw = window.localStorage.getItem(STORAGE_KEYS.installPlan);
+  return raw === "basic" || raw === "pro" || raw === "free" ? raw : getDefaultPlan();
+}
+
+export function getStoredUsage() {
+  const raw = window.localStorage.getItem(STORAGE_KEYS.installUsage);
+  if (!raw) {
+    return createEmptyUsageSnapshot(getStoredPlan());
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as PlanUsageSnapshot;
+    if (!parsed || (parsed.plan !== "free" && parsed.plan !== "basic" && parsed.plan !== "pro")) {
+      return createEmptyUsageSnapshot(getStoredPlan());
+    }
+    return parsed;
+  } catch {
+    return createEmptyUsageSnapshot(getStoredPlan());
+  }
+}
+
+export function storeUsageSnapshot(usage?: PlanUsageSnapshot | null) {
+  if (!usage) {
+    window.localStorage.removeItem(STORAGE_KEYS.installUsage);
+    return;
+  }
+
+  window.localStorage.setItem(STORAGE_KEYS.installUsage, JSON.stringify(usage));
+  window.dispatchEvent(new CustomEvent("mecanico-install-usage-updated", { detail: usage }));
 }
 
 function saveInstallBootstrap(bootstrap: InstallBootstrapResponse["integrity"] | null) {
@@ -82,8 +133,15 @@ export function storeInstallToken(token: string, expiresAt?: string) {
 
   window.localStorage.setItem(STORAGE_KEYS.installToken, token);
   window.localStorage.setItem(STORAGE_KEYS.installTokenExpiry, nextExpiry);
+  const payload = decodeTokenPayload(token);
+  const plan = payload?.plan ?? getDefaultPlan();
+  const previousPlan = window.localStorage.getItem(STORAGE_KEYS.installPlan);
+  window.localStorage.setItem(STORAGE_KEYS.installPlan, plan);
+  if (previousPlan !== plan || !window.localStorage.getItem(STORAGE_KEYS.installUsage)) {
+    storeUsageSnapshot(createEmptyUsageSnapshot(plan));
+  }
   saveInstallBootstrap(null);
-  window.dispatchEvent(new CustomEvent("mecanico-install-token-ready", { detail: { expiresAt: nextExpiry } }));
+  window.dispatchEvent(new CustomEvent("mecanico-install-token-ready", { detail: { expiresAt: nextExpiry, plan } }));
   return true;
 }
 
@@ -144,6 +202,9 @@ export async function ensureInstallToken() {
   }
 
   storeInstallToken(data.token, data.expiresAt);
+  if (data.usage) {
+    storeUsageSnapshot(data.usage);
+  }
 
   return data.token;
 }

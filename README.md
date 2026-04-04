@@ -10,6 +10,7 @@ Spanish-first AI diagnostic chat app for mechanics and shop technicians.
 - OpenAI Responses API on the server
 - Signed install tokens for device-level access control
 - Optional Google Play license verification for Android releases
+- Subscription tiers with plan-aware usage limits
 
 ## Core Security Rules
 
@@ -21,6 +22,10 @@ Spanish-first AI diagnostic chat app for mechanics and shop technicians.
 - Chat requests require a signed install token.
 - Backend rate limiting is enforced per install.
 - When `REQUIRE_PLAY_INTEGRITY_LICENSE=true`, chat access requires a verified Google Play licensed install.
+- Plans are enforced server-side:
+  - `free`: 5 total questions
+  - `basic`: 10 questions per day
+  - `pro`: unlimited use, voice, and photo/document upload
 
 ## Persistence Model
 
@@ -48,6 +53,9 @@ Spanish-first AI diagnostic chat app for mechanics and shop technicians.
   6. the native layer injects that token into the WebView with `window.MecanicoWebApp.setInstallToken(token, expiresAt)`
   7. the chat UI uses that token when calling `POST /api/chat`
 - If you deploy with `REQUIRE_PLAY_INTEGRITY_LICENSE=false`, the app works in browser mode, but it is only rate-limited, not Play-licensed.
+- `POST /api/purchase/verify` maps Google Play product IDs to plans:
+  - `GOOGLE_PLAY_BASIC_PRODUCT_ID`
+  - `GOOGLE_PLAY_PRO_PRODUCT_ID`
 
 ## Conditional Web Search
 
@@ -82,6 +90,8 @@ When the decision is true, OpenAI is called with:
    - `CHAT_RATE_LIMIT_PER_MINUTE`
    - `CHAT_RATE_LIMIT_PER_DAY`
    - `GOOGLE_PLAY_PACKAGE_NAME`
+   - `GOOGLE_PLAY_BASIC_PRODUCT_ID`
+   - `GOOGLE_PLAY_PRO_PRODUCT_ID`
    - `GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL`
    - `GOOGLE_PLAY_PRIVATE_KEY`
 4. Run app:
@@ -103,6 +113,7 @@ Open `http://localhost:3000`.
 - Vehicle intake modal: `components/intake/vehicle-intake-drawer.tsx`
 - Install token signing: `lib/security/install-tokens.ts`
 - Rate limiting: `lib/security/rate-limit.ts`
+- Plan limits: `lib/security/plan-usage.ts`
 - Play Integrity verification: `lib/security/play-integrity.ts`
 - Google Play purchase verification: `lib/purchases/google-play.ts`
 

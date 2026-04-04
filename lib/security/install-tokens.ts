@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { getDefaultPlan, type SubscriptionPlan } from "@/lib/billing/plans";
 import { ApiError } from "@/lib/security/api-error";
 
 export type InstallEntitlement = "anonymous" | "licensed_install" | "verified_purchase";
@@ -8,6 +9,7 @@ export interface InstallTokenPayload {
   version: 1;
   installId: string;
   entitlement: InstallEntitlement;
+  plan: SubscriptionPlan;
   iat: number;
   exp: number;
   purchase?: {
@@ -55,6 +57,7 @@ function sign(unsignedToken: string) {
 export function issueInstallToken(input: {
   installId: string;
   entitlement: InstallEntitlement;
+  plan?: SubscriptionPlan;
   expiresInSeconds: number;
   purchase?: InstallTokenPayload["purchase"];
 }) {
@@ -63,6 +66,7 @@ export function issueInstallToken(input: {
     version: 1,
     installId: input.installId,
     entitlement: input.entitlement,
+    plan: input.plan ?? getDefaultPlan(),
     iat: now,
     exp: now + input.expiresInSeconds,
     purchase: input.purchase
@@ -110,7 +114,7 @@ export function verifyInstallToken(token: string): InstallTokenPayload {
     });
   }
 
-  if (payload.version !== 1 || !payload.installId || !payload.entitlement) {
+  if (payload.version !== 1 || !payload.installId || !payload.entitlement || !payload.plan) {
     throw new ApiError({
       status: 401,
       code: "install_token_invalid",

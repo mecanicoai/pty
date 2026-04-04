@@ -1,3 +1,4 @@
+import type { PlanUsageSnapshot, SubscriptionPlan } from "@/lib/billing/plans";
 import type { AppLanguage, AppMode, ChatAttachment, DiagnosticResponse, VehicleContext } from "@/types/chat";
 
 export interface SessionSummary {
@@ -16,6 +17,8 @@ export interface ChatHistoryItem {
 }
 
 export interface ChatResponse extends DiagnosticResponse {
+  plan: SubscriptionPlan;
+  usage: PlanUsageSnapshot;
   sessionId?: string;
   requestId?: string;
 }
@@ -29,6 +32,8 @@ export interface InstallIntegrityBootstrap {
 
 export interface InstallBootstrapResponse {
   installId: string;
+  plan?: SubscriptionPlan;
+  usage?: PlanUsageSnapshot;
   token?: string;
   expiresAt?: string;
   integrityRequired?: boolean;
