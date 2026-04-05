@@ -8,6 +8,9 @@ export interface LocalChatSession {
   language: AppLanguage;
   experienceMode: AppExperienceMode;
   pendingProAction?: "triage_collect" | "triage_quote" | null;
+  customerName?: string;
+  customerPhone?: string;
+  vehicleLabel?: string;
   vehicle: VehicleContext | null;
   messages: UiMessage[];
   updatedAt: string;

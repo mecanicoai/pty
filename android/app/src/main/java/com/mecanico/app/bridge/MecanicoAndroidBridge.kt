@@ -82,6 +82,14 @@ class MecanicoAndroidBridge(
         )
     }
 
+    fun sendSharedIntentToWeb(payloadJson: String) {
+        enqueueJavascript(
+            """
+            window.MecanicoWebApp?.receiveSharedIntent?.($payloadJson)
+            """.trimIndent()
+        )
+    }
+
     fun onPageReady() {
         pageReady = true
         if (pendingScripts.isEmpty()) {

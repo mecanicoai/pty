@@ -21,6 +21,7 @@ declare global {
       setVoiceRecording?: (recording: boolean) => void;
       receiveAttachments?: (payload: string | unknown[] | { attachments?: unknown[] }) => void;
       receiveBridgeError?: (payload: string | { message?: string }) => void;
+      receiveSharedIntent?: (payload: string | Record<string, unknown>) => void;
     };
   }
 }

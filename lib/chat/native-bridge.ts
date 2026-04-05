@@ -4,8 +4,16 @@ const EVENTS = {
   voiceTranscript: "mecanico-native-voice-transcript",
   voiceState: "mecanico-native-voice-state",
   attachments: "mecanico-native-attachments",
-  error: "mecanico-native-error"
+  error: "mecanico-native-error",
+  sharedIntent: "mecanico-native-shared-intent"
 } as const;
+
+export interface SharedIntentPayload {
+  sourceApp?: string;
+  sharedText?: string;
+  receivedAt?: string;
+  attachments?: ChatAttachment[];
+}
 
 declare global {
   interface Window {
@@ -69,6 +77,31 @@ function normalizeError(payload: unknown) {
   return "No se pudo completar la accion nativa.";
 }
 
+function normalizeSharedIntent(payload: unknown): SharedIntentPayload {
+  const parsed =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            return {};
+          }
+        })()
+      : payload;
+
+  if (!parsed || typeof parsed !== "object") {
+    return {};
+  }
+
+  const next = parsed as Record<string, unknown>;
+  return {
+    sourceApp: typeof next.sourceApp === "string" ? next.sourceApp : undefined,
+    sharedText: typeof next.sharedText === "string" ? next.sharedText : undefined,
+    receivedAt: typeof next.receivedAt === "string" ? next.receivedAt : undefined,
+    attachments: normalizeAttachments(next.attachments)
+  };
+}
+
 function emit<T>(name: string, detail: T) {
   window.dispatchEvent(new CustomEvent(name, { detail }));
 }
@@ -92,6 +125,9 @@ export function registerNativeMediaBridge() {
     receiveBridgeError: (payload: string | { message?: string }) => {
       emit(EVENTS.error, { message: normalizeError(payload) });
       emit(EVENTS.voiceState, { recording: false });
+    },
+    receiveSharedIntent: (payload: string | Record<string, unknown>) => {
+      emit(EVENTS.sharedIntent, normalizeSharedIntent(payload));
     }
   };
 }

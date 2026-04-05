@@ -11,6 +11,8 @@ import { CustomerMessageWorkspace } from "@/components/pro/customer-message-work
 import { DocumentWorkspace } from "@/components/pro/document-workspace";
 import { SessionList } from "@/components/sidebar/session-list";
 import { Button } from "@/components/ui/button";
+import { Input, Textarea } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { createEmptyUsageSnapshot, PLAN_DEFINITIONS, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
 import {
   activateTestPlan,
@@ -22,6 +24,7 @@ import {
   registerNativeInstallBridge,
   storeUsageSnapshot
 } from "@/lib/chat/install-auth";
+import { nativeBridgeEvents, registerNativeMediaBridge, type SharedIntentPayload } from "@/lib/chat/native-bridge";
 import { createLocalSession, loadLocalSessions, saveLocalSessions, type LocalChatSession } from "@/lib/chat/local-store";
 import {
   getBusinessProfile,
@@ -194,6 +197,10 @@ function getMissingTriageFields(messageText: string) {
   return { fields, missing };
 }
 
+function normalizePhone(phone: string) {
+  return phone.replace(/[^\d+]/g, "");
+}
+
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -251,6 +258,15 @@ export function ChatLayout() {
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [workflowOutput, setWorkflowOutput] = useState<ProWorkflowOutput | null>(null);
   const [lastVehicleContext, setLastVehicleContextState] = useState<VehicleContext | null>(null);
+  const [triageModalOpen, setTriageModalOpen] = useState(false);
+  const [triageDraft, setTriageDraft] = useState({
+    customerName: "",
+    vehicleLabel: "",
+    customerPhone: "",
+    customerMessage: ""
+  });
+  const [triageAttachments, setTriageAttachments] = useState<ChatAttachment[]>([]);
+  const [pendingSharedIntent, setPendingSharedIntent] = useState<SharedIntentPayload | null>(null);
 
   const currentChatExperienceMode: AppExperienceMode = selectedMode === "pro" ? "pro" : "diy";
   const visibleSessions = useMemo(
@@ -360,6 +376,7 @@ export function ChatLayout() {
   useEffect(() => {
     let cancelled = false;
     registerNativeInstallBridge();
+    registerNativeMediaBridge();
 
     async function bootstrapInstallSession() {
       try {
@@ -408,6 +425,71 @@ export function ChatLayout() {
       window.removeEventListener("mecanico-install-usage-updated", handleUsageUpdated);
     };
   }, []);
+
+  useEffect(() => {
+    function handleSharedIntent(event: Event) {
+      const detail = (event as CustomEvent<SharedIntentPayload>).detail;
+      if (!detail) {
+        return;
+      }
+
+      if (!businessProfile) {
+        setPendingSharedIntent(detail);
+        setSelectedMode("pro");
+        setSelectedModeState("pro");
+        setBusinessModalOpen(true);
+        return;
+      }
+
+      const extracted = extractWorkflowContactFields(detail.sharedText || "");
+      const normalizedPhone = normalizePhone(extracted.customerPhone || "");
+      const proSessions = sessions.filter((session) => session.experienceMode === "pro");
+      const matchedSession =
+        normalizedPhone
+          ? proSessions.find((session) => normalizePhone(session.customerPhone || "") === normalizedPhone)
+          : null;
+
+      if (selectedMode !== "pro") {
+        setSelectedMode("pro");
+        setSelectedModeState("pro");
+      }
+
+      if (matchedSession) {
+        setActiveSessionId(matchedSession.id);
+      } else {
+        const fresh = createLocalSession(language, "pro");
+        fresh.customerPhone = extracted.customerPhone || "";
+        fresh.customerName = extracted.customerName || "";
+        fresh.vehicleLabel = extracted.vehicleLabel || "";
+        setSessions((prev) => [fresh, ...prev]);
+        setActiveSessionId(fresh.id);
+      }
+
+      setTriageDraft({
+        customerName: extracted.customerName || "",
+        vehicleLabel: extracted.vehicleLabel || "",
+        customerPhone: extracted.customerPhone || "",
+        customerMessage: detail.sharedText || ""
+      });
+      setTriageAttachments(detail.attachments || []);
+      setTriageModalOpen(true);
+    }
+
+    window.addEventListener(nativeBridgeEvents.sharedIntent, handleSharedIntent);
+    return () => {
+      window.removeEventListener(nativeBridgeEvents.sharedIntent, handleSharedIntent);
+    };
+  }, [businessProfile, language, selectedMode, sessions]);
+
+  useEffect(() => {
+    if (!pendingSharedIntent || !businessProfile) {
+      return;
+    }
+
+    const detail = pendingSharedIntent;
+    setPendingSharedIntent(null);
+    window.dispatchEvent(new CustomEvent(nativeBridgeEvents.sharedIntent, { detail }));
+  }, [businessProfile, pendingSharedIntent]);
 
   function updateActiveSession(mutator: (session: LocalChatSession) => LocalChatSession) {
     setSessions((prev) =>
@@ -510,7 +592,10 @@ export function ChatLayout() {
     }
   }
 
-  async function handleSend(payload: { message: string; attachments: ChatAttachment[] }) {
+  async function handleSend(
+    payload: { message: string; attachments: ChatAttachment[] },
+    options?: { forceWorkflowMode?: boolean }
+  ) {
     if (!activeSession) {
       return;
     }
@@ -527,7 +612,10 @@ export function ChatLayout() {
 
     const existingMessages = activeSession.messages;
     const latestWorkflowBefore = getLatestWorkflowFromSession(activeSession);
-    const isCollectingTriage = currentChatExperienceMode === "pro" && activeSession.pendingProAction === "triage_collect";
+    const isCollectingTriage =
+      currentChatExperienceMode === "pro" &&
+      activeSession.pendingProAction === "triage_collect" &&
+      !options?.forceWorkflowMode;
     const triageCheck = isCollectingTriage ? getMissingTriageFields(messageText) : null;
     updateActiveSession((session) => ({
       ...session,
@@ -564,10 +652,11 @@ export function ChatLayout() {
         return;
       }
 
-      const isWorkflowMode =
-        currentChatExperienceMode === "pro" &&
-        !!businessProfile &&
-        ((activeSession.pendingProAction === "triage_quote" || activeSession.pendingProAction === "triage_collect") || !!latestWorkflowBefore);
+        const isWorkflowMode =
+          !!options?.forceWorkflowMode ||
+          currentChatExperienceMode === "pro" &&
+          !!businessProfile &&
+          ((activeSession.pendingProAction === "triage_quote" || activeSession.pendingProAction === "triage_collect") || !!latestWorkflowBefore);
       const response = await sendChatRequest({
         message: isWorkflowMode
           ? [
@@ -633,6 +722,9 @@ export function ChatLayout() {
           language,
           title: deriveTitle(messageText, session.vehicle, language, session.experienceMode),
           messages: [...session.messages, assistantMessage],
+          customerName: nextWorkflow?.customerName || session.customerName,
+          customerPhone: nextWorkflow?.customerPhone || session.customerPhone,
+          vehicleLabel: nextWorkflow?.vehicleLabel || session.vehicleLabel,
           pendingProAction: isWorkflowMode ? "triage_quote" : session.pendingProAction ?? null,
           updatedAt: assistantMessage.createdAt
         }));
@@ -666,6 +758,43 @@ export function ChatLayout() {
     await handleSend({ message: prompt, attachments: [] });
   }
 
+  async function handleSubmitTriageModal() {
+    if (!triageDraft.customerName.trim() || !triageDraft.vehicleLabel.trim() || !triageDraft.customerPhone.trim() || !triageDraft.customerMessage.trim()) {
+      setError(language === "es" ? "Completa cliente, vehiculo, telefono y mensaje." : "Complete customer, vehicle, phone, and message.");
+      return;
+    }
+
+    updateActiveSession((session) => ({
+      ...session,
+      pendingProAction: "triage_quote",
+      customerName: triageDraft.customerName.trim(),
+      customerPhone: triageDraft.customerPhone.trim(),
+      vehicleLabel: triageDraft.vehicleLabel.trim(),
+      updatedAt: new Date().toISOString()
+    }));
+
+    const formattedMessage = [
+      `Cliente: ${triageDraft.customerName.trim()}`,
+      `Vehiculo: ${triageDraft.vehicleLabel.trim()}`,
+      `Telefono: ${triageDraft.customerPhone.trim()}`,
+      `Mensaje: ${triageDraft.customerMessage.trim()}`
+    ].join("\n");
+
+    setTriageModalOpen(false);
+    setError(null);
+
+      await handleSend(
+        {
+        message: formattedMessage,
+        attachments: triageAttachments
+        },
+        {
+          forceWorkflowMode: true
+        }
+      );
+    setTriageAttachments([]);
+  }
+
   function handleProActionInChat(action: "triage" | "quote" | "invoice" | "brief") {
     if (!activeSession) {
       return;
@@ -682,14 +811,15 @@ export function ChatLayout() {
     }
 
     if (action === "triage") {
-      updateActiveSession((session) => ({
-        ...session,
-        pendingProAction: "triage_collect",
-        updatedAt: new Date().toISOString()
-      }));
-      appendAssistantMessage({
-        text: buildProActionPrompt(language)
+      const latestWorkflow = getLatestWorkflowFromSession(activeSession) ?? workflowOutput;
+      setTriageDraft({
+        customerName: latestWorkflow?.customerName || "",
+        vehicleLabel: latestWorkflow?.vehicleLabel || "",
+        customerPhone: latestWorkflow?.customerPhone || "",
+        customerMessage: ""
       });
+      setTriageAttachments([]);
+      setTriageModalOpen(true);
       return;
     }
 
@@ -1156,6 +1286,56 @@ export function ChatLayout() {
         onClose={() => setBusinessModalOpen(false)}
         onSave={handleSaveBusiness}
       />
+
+      <Modal
+        open={triageModalOpen}
+        title={language === "es" ? "Triage y cotizacion inicial" : "Initial triage and quote"}
+        onClose={() => setTriageModalOpen(false)}
+      >
+        <div className="space-y-3">
+          <p className="text-sm leading-6 text-[var(--wa-text-secondary)]">
+            {language === "es"
+              ? "Captura los datos del cliente primero. Al guardar, se meten al chat y el triage corre con esa informacion."
+              : "Capture the customer details first. When you save, they are written into the chat and triage runs with that information."}
+          </p>
+          <Input
+            placeholder={language === "es" ? "Cliente" : "Customer"}
+            value={triageDraft.customerName}
+            onChange={(event) => setTriageDraft((prev) => ({ ...prev, customerName: event.target.value }))}
+          />
+          <Input
+            placeholder={language === "es" ? "Vehiculo" : "Vehicle"}
+            value={triageDraft.vehicleLabel}
+            onChange={(event) => setTriageDraft((prev) => ({ ...prev, vehicleLabel: event.target.value }))}
+          />
+          <Input
+            placeholder={language === "es" ? "Telefono / WhatsApp" : "Phone / WhatsApp"}
+            value={triageDraft.customerPhone}
+            onChange={(event) => setTriageDraft((prev) => ({ ...prev, customerPhone: event.target.value }))}
+          />
+          <Textarea
+            rows={5}
+            placeholder={language === "es" ? "Mensaje del cliente o resumen de la nota de voz" : "Customer message or voice note summary"}
+            value={triageDraft.customerMessage}
+            onChange={(event) => setTriageDraft((prev) => ({ ...prev, customerMessage: event.target.value }))}
+          />
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button type="button" variant="secondary" onClick={() => setTriageModalOpen(false)}>
+              {language === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button type="button" onClick={() => void handleSubmitTriageModal()}>
+              {language === "es" ? "Guardar y correr triage" : "Save and run triage"}
+            </Button>
+          </div>
+          {triageAttachments.length ? (
+            <p className="text-xs text-[var(--wa-text-secondary)]">
+              {language === "es"
+                ? `Adjuntos importados: ${triageAttachments.map((item) => item.name).join(", ")}`
+                : `Imported attachments: ${triageAttachments.map((item) => item.name).join(", ")}`}
+            </p>
+          ) : null}
+        </div>
+      </Modal>
     </main>
   );
 }
