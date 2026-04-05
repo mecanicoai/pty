@@ -39,6 +39,7 @@ Spanish-first AI diagnostic chat app for mechanics and shop technicians.
 - `POST /api/chat`
 - `POST /api/integrity/verify`
 - `POST /api/purchase/verify`
+- `POST /api/testing/plan` (test-only override when explicitly enabled)
 
 ## Production Notes
 
@@ -56,6 +57,10 @@ Spanish-first AI diagnostic chat app for mechanics and shop technicians.
 - `POST /api/purchase/verify` maps Google Play product IDs to plans:
   - `GOOGLE_PLAY_BASIC_PRODUCT_ID`
   - `GOOGLE_PLAY_PRO_PRODUCT_ID`
+- For temporary device-side plan testing without real billing, enable:
+  - `ALLOW_TEST_PLAN_OVERRIDE=true`
+  - `NEXT_PUBLIC_ALLOW_TEST_PLAN_OVERRIDE=true`
+  Then use the pricing sheet to activate `DIY Plus` or `Para los Pros` on the current install.
 
 ## Conditional Web Search
 
@@ -89,6 +94,8 @@ When the decision is true, OpenAI is called with:
    - `REQUIRE_PURCHASE_VERIFICATION`
    - `CHAT_RATE_LIMIT_PER_MINUTE`
    - `CHAT_RATE_LIMIT_PER_DAY`
+   - `ALLOW_TEST_PLAN_OVERRIDE`
+   - `NEXT_PUBLIC_ALLOW_TEST_PLAN_OVERRIDE`
    - `GOOGLE_PLAY_PACKAGE_NAME`
    - `GOOGLE_PLAY_BASIC_PRODUCT_ID`
    - `GOOGLE_PLAY_PRO_PRODUCT_ID`

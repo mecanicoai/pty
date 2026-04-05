@@ -1,5 +1,5 @@
 import { createEmptyUsageSnapshot, getDefaultPlan, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
-import type { InstallBootstrapResponse } from "@/types/api";
+import type { InstallBootstrapResponse, PlanActivationResponse } from "@/types/api";
 
 const STORAGE_KEYS = {
   installId: "mecanico-install-id",
@@ -38,6 +38,10 @@ export function getOrCreateInstallId() {
   const next = createInstallId();
   window.localStorage.setItem(STORAGE_KEYS.installId, next);
   return next;
+}
+
+export function isTestPlanOverrideEnabled() {
+  return process.env.NEXT_PUBLIC_ALLOW_TEST_PLAN_OVERRIDE === "true";
 }
 
 function decodeTokenPayload(token: string): { plan?: SubscriptionPlan } | null {
@@ -143,6 +147,27 @@ export function storeInstallToken(token: string, expiresAt?: string) {
   saveInstallBootstrap(null);
   window.dispatchEvent(new CustomEvent("mecanico-install-token-ready", { detail: { expiresAt: nextExpiry, plan } }));
   return true;
+}
+
+export async function activateTestPlan(plan: SubscriptionPlan) {
+  const installId = getOrCreateInstallId();
+  const response = await fetch("/api/testing/plan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      installId,
+      plan
+    })
+  });
+
+  const data = (await response.json().catch(() => ({}))) as PlanActivationResponse & Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(typeof data.error === "string" ? data.error : "No se pudo activar el plan de prueba.");
+  }
+
+  storeInstallToken(data.token, data.expiresAt);
+  storeUsageSnapshot(data.usage);
+  return data;
 }
 
 export function registerNativeInstallBridge() {

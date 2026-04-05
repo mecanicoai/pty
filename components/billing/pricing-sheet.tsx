@@ -7,6 +7,9 @@ interface Props {
   language: AppLanguage;
   currentPlan: SubscriptionPlan;
   usage: PlanUsageSnapshot;
+  allowTestOverride?: boolean;
+  activatingPlan?: SubscriptionPlan | null;
+  onActivateTestPlan?: (plan: SubscriptionPlan) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -30,7 +33,16 @@ function getPlanBullets(language: AppLanguage, plan: SubscriptionPlan) {
   return ["Maestro Mecanico ilimitado", "Voz, fotos y archivos", "Cotizaciones, facturas y briefs internos"];
 }
 
-export function PricingSheet({ open, language, currentPlan, usage, onClose }: Props) {
+export function PricingSheet({
+  open,
+  language,
+  currentPlan,
+  usage,
+  allowTestOverride = false,
+  activatingPlan = null,
+  onActivateTestPlan,
+  onClose
+}: Props) {
   if (!open) {
     return null;
   }
@@ -123,6 +135,23 @@ export function PricingSheet({ open, language, currentPlan, usage, onClose }: Pr
                     <Button type="button" variant={plan === "pro" ? "primary" : "secondary"} className="w-full">
                       {copy.upgrade}
                     </Button>
+                    {allowTestOverride && onActivateTestPlan ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="mt-2 w-full"
+                        disabled={activatingPlan === plan}
+                        onClick={() => void onActivateTestPlan(plan)}
+                      >
+                        {language === "es"
+                          ? activatingPlan === plan
+                            ? "Activando..."
+                            : "Activar para prueba"
+                          : activatingPlan === plan
+                            ? "Activating..."
+                            : "Activate for testing"}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

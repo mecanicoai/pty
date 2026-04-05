@@ -14,10 +14,12 @@ import { SessionList } from "@/components/sidebar/session-list";
 import { Button } from "@/components/ui/button";
 import { createEmptyUsageSnapshot, PLAN_DEFINITIONS, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
 import {
+  activateTestPlan,
   clearStoredInstallSession,
   ensureInstallToken,
   getStoredPlan,
   getStoredUsage,
+  isTestPlanOverrideEnabled,
   registerNativeInstallBridge,
   storeUsageSnapshot
 } from "@/lib/chat/install-auth";
@@ -190,6 +192,7 @@ export function ChatLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [activatingPlan, setActivatingPlan] = useState<SubscriptionPlan | null>(null);
   const [installReady, setInstallReady] = useState(false);
   const [installLoading, setInstallLoading] = useState(true);
   const [plan, setPlan] = useState<SubscriptionPlan>("free");
@@ -645,6 +648,24 @@ export function ChatLayout() {
     setPricingOpen(true);
   }
 
+  async function handleActivateTestPlan(nextPlan: SubscriptionPlan) {
+    setActivatingPlan(nextPlan);
+    setError(null);
+
+    try {
+      const response = await activateTestPlan(nextPlan);
+      setPlan(response.plan);
+      setUsage(response.usage);
+      if (selectedMode === "pro" && response.plan !== "pro") {
+        setProView("home");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo activar el plan de prueba.");
+    } finally {
+      setActivatingPlan(null);
+    }
+  }
+
   const usageLabel = getPlanUsageLabel(language, plan, usage);
   const isProUnlocked = plan === "pro";
 
@@ -851,6 +872,9 @@ export function ChatLayout() {
         language={language}
         currentPlan={plan}
         usage={usage}
+        allowTestOverride={isTestPlanOverrideEnabled()}
+        activatingPlan={activatingPlan}
+        onActivateTestPlan={handleActivateTestPlan}
         onClose={() => setPricingOpen(false)}
       />
 

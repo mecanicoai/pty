@@ -41,6 +41,16 @@ export interface InstallBootstrapResponse {
   requestId?: string;
 }
 
+export interface PlanActivationResponse {
+  installId: string;
+  token: string;
+  expiresAt: string;
+  entitlement?: string;
+  plan: SubscriptionPlan;
+  usage: PlanUsageSnapshot;
+  requestId?: string;
+}
+
 export interface ChatRequestPayload {
   sessionId?: string;
   message: string;
