@@ -1,5 +1,5 @@
-import { PLAN_DEFINITIONS, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
 import { Button } from "@/components/ui/button";
+import { PLAN_DEFINITIONS, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
 import type { AppLanguage } from "@/types/chat";
 
 interface Props {
@@ -16,19 +16,19 @@ interface Props {
 function getPlanBullets(language: AppLanguage, plan: SubscriptionPlan) {
   if (language === "en") {
     if (plan === "free") {
-      return ["5 total questions", "Basic symptom guidance", "Best for trying DIY mode"];
+      return ["5 total questions", "Basic help with symptoms and first checks", "Good for trying DIY mode"];
     }
     if (plan === "basic") {
-      return ["10 questions per day", "Deeper DIY troubleshooting", "Built for car owners and hobbyists"];
+      return ["10 questions per day", "Deeper DIY troubleshooting", "Built for owners and hobbyists"];
     }
     return ["Unlimited Master Mechanic chat", "Voice, photo, and file upload", "Quotes, invoices, and internal briefs"];
   }
 
   if (plan === "free") {
-    return ["5 preguntas totales", "Guia basica de sintomas", "Ideal para probar DIY"];
+    return ["5 preguntas totales", "Ayuda basica con sintomas y primeras revisiones", "Ideal para probar DIY"];
   }
   if (plan === "basic") {
-    return ["10 preguntas por dia", "Troubleshooting DIY mas profundo", "Pensado para dueños y hobbyistas"];
+    return ["10 preguntas por dia", "Troubleshooting DIY mas profundo", "Pensado para duenos y hobbyistas"];
   }
   return ["Maestro Mecanico ilimitado", "Voz, fotos y archivos", "Cotizaciones, facturas y briefs internos"];
 }
@@ -50,8 +50,8 @@ export function PricingSheet({
   const copy =
     language === "es"
       ? {
-          title: "Planes de trabajo",
-          subtitle: "DIY ayuda a entender mejor el carro. Para los Pros ayuda a convertir mensajes en trabajo aprobado.",
+          title: "Planes de uso",
+          subtitle: "DIY te ayuda a entender mejor la falla. Para los Pros te ayuda a convertir mensajes en trabajo aprobado.",
           current: "Plan actual",
           usage:
             usage.plan === "free"
@@ -59,12 +59,12 @@ export function PricingSheet({
               : usage.plan === "basic"
                 ? `${usage.dayRemaining ?? 0} preguntas restantes hoy`
                 : "Uso ilimitado activo",
-          upgrade: "Proximamente en Google Play",
+          upgrade: "Disponible desde Google Play",
           close: "Cerrar"
         }
       : {
-          title: "Work plans",
-          subtitle: "DIY helps users understand the car problem. Pro helps mechanics turn customer messages into approved work.",
+          title: "Plans",
+          subtitle: "DIY helps you understand the problem. Pro helps turn customer messages into approved work.",
           current: "Current plan",
           usage:
             usage.plan === "free"
@@ -72,7 +72,7 @@ export function PricingSheet({
               : usage.plan === "basic"
                 ? `${usage.dayRemaining ?? 0} questions left today`
                 : "Unlimited access active",
-          upgrade: "Coming soon on Google Play",
+          upgrade: "Available on Google Play",
           close: "Close"
         };
 

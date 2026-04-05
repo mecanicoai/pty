@@ -194,7 +194,7 @@ export function Composer({
         throw new Error("Solo puedes enviar hasta 4 archivos por mensaje.");
       }
       await onSend({
-        message: text || (language === "es" ? "Aquí va la foto o documento del problema." : "Here is the photo or document."),
+        message: text || (language === "es" ? "Aqui va la foto o documento del problema." : "Here is the photo or document."),
         attachments
       });
       setValue("");
@@ -254,8 +254,8 @@ export function Composer({
           className={`flex h-11 w-11 items-center justify-center rounded-2xl text-2xl text-white shadow-lg transition active:scale-95 ${
             recording ? "bg-[#bf6927]" : "bg-[var(--mech-orange)] hover:bg-[#d87524]"
           }`}
-          aria-label={language === "es" ? "Micrófono" : "Microphone"}
-          title={language === "es" ? "Micrófono" : "Microphone"}
+          aria-label={language === "es" ? "Microfono" : "Microphone"}
+          title={language === "es" ? "Microfono" : "Microphone"}
         >
           {"\uD83C\uDFA4"}
         </button>
@@ -317,7 +317,7 @@ export function Composer({
                 void submit();
               }
             }}
-            placeholder={language === "es" ? "¿Qué le pasa al carro, jefe?" : "What is wrong with the vehicle?"}
+            placeholder={language === "es" ? "Describe el sintoma, ruido o codigo" : "Describe the symptom, noise, or code"}
             className="h-[50px] w-full rounded-[999px] border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-5 text-[17px] text-[var(--wa-control-text)] outline-none ring-0 placeholder:text-[var(--wa-control-placeholder)] focus:border-[var(--taller-green)] focus:shadow-[0_0_0_3px_rgba(23,156,99,0.12)]"
           />
         </div>

@@ -1,6 +1,7 @@
 import Image from "next/image";
 
 import { Composer } from "@/components/chat/composer";
+import { DiyHome } from "@/components/chat/diy-home";
 import { MessageList } from "@/components/chat/message-list";
 import type { UiMessage } from "@/components/chat/types";
 import type { SubscriptionPlan } from "@/lib/billing/plans";
@@ -10,12 +11,20 @@ interface Props {
   title: string;
   language: AppLanguage;
   isDarkMode: boolean;
+  mode: "diy" | "pro";
   messages: UiMessage[];
   loading: boolean;
+  showDiyHome?: boolean;
   disabled?: boolean;
   plan: SubscriptionPlan;
   usageLabel: string;
+  proActions?: Array<{
+    id: string;
+    label: string;
+    onClick: () => void;
+  }>;
   onSend: (payload: { message: string; attachments: ChatAttachment[] }) => Promise<void>;
+  onSuggestedPrompt: (prompt: string) => Promise<void>;
   onNewThread: () => Promise<void>;
   onOpenHistory: () => void;
   onOpenIntake: () => void;
@@ -31,12 +40,16 @@ export function ChatPanel({
   title,
   language,
   isDarkMode,
+  mode,
   messages,
   loading,
+  showDiyHome = false,
   disabled = false,
   plan,
   usageLabel,
+  proActions = [],
   onSend,
+  onSuggestedPrompt,
   onNewThread,
   onOpenHistory,
   onOpenIntake,
@@ -52,7 +65,7 @@ export function ChatPanel({
       ? {
           title: title || "Mecanico AI",
           statusShort: "En linea",
-          statusLong: "Tu companero en el taller",
+          statusLong: mode === "diy" ? "Guia practica para tu carro" : "Tu companero en el taller",
           planBadge: plan === "free" ? "DIY gratis" : plan === "basic" ? "DIY Plus" : "Pro",
           history: "Abrir historial",
           vehicle: "Datos del vehiculo",
@@ -65,7 +78,7 @@ export function ChatPanel({
       : {
           title: title || "Mecanico AI",
           statusShort: "Online",
-          statusLong: "Your shop companion",
+          statusLong: mode === "diy" ? "Practical car guidance" : "Your shop companion",
           planBadge: plan === "free" ? "DIY Free" : plan === "basic" ? "DIY Plus" : "Pro",
           history: "Open history",
           vehicle: "Vehicle details",
@@ -182,7 +195,28 @@ export function ChatPanel({
         </button>
       </div>
 
-      <MessageList messages={messages} loading={loading} />
+      {mode === "pro" && proActions.length ? (
+        <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {proActions.map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                onClick={action.onClick}
+                className="shrink-0 rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-4 py-2 text-sm font-medium text-[var(--wa-control-text)] shadow-sm transition hover:bg-[var(--wa-control-bg-soft)]"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {showDiyHome ? (
+        <DiyHome language={language} plan={plan} disabled={loading || disabled} onPromptSelect={onSuggestedPrompt} onOpenPlans={onOpenPlans} />
+      ) : null}
+
+      <MessageList messages={messages} loading={loading} emptyStateText={showDiyHome ? null : undefined} />
 
       <Composer
         onSend={onSend}

@@ -9,9 +9,10 @@ import type { UiMessage } from "@/components/chat/types";
 interface Props {
   messages: UiMessage[];
   loading: boolean;
+  emptyStateText?: string | null;
 }
 
-export function MessageList({ messages, loading }: Props) {
+export function MessageList({ messages, loading, emptyStateText = "Describe la falla y te ayudo a ubicar que revisar primero." }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,10 +31,12 @@ export function MessageList({ messages, loading }: Props) {
           ))}
           {loading ? <TypingIndicator /> : null}
         </div>
-      ) : (
+      ) : emptyStateText ? (
         <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--wa-text-secondary)]">
-          Cuentame la falla y te ayudo paso a paso.
+          {emptyStateText}
         </div>
+      ) : (
+        <div className="h-4" />
       )}
     </div>
   );

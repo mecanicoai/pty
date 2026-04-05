@@ -59,8 +59,15 @@ export function BusinessSetupDrawer({ open, initialProfile, onClose, onSave }: P
   }, [initialProfile, open]);
 
   async function handleSave() {
-    if (!form.business_name.trim() || !form.mechanic_name.trim() || !form.whatsapp_number.trim() || !form.payment_link.trim()) {
-      setError("Completa los campos obligatorios para activar el modo Pro.");
+    if (
+      !form.business_name.trim() ||
+      !form.mechanic_name.trim() ||
+      !form.whatsapp_number.trim() ||
+      !form.payment_link.trim() ||
+      typeof form.labor_rate !== "number" ||
+      form.labor_rate <= 0
+    ) {
+      setError("Completa los campos obligatorios, incluida la mano de obra por hora, para activar el modo Pro.");
       return;
     }
 
@@ -152,11 +159,16 @@ export function BusinessSetupDrawer({ open, initialProfile, onClose, onSave }: P
           value={form.default_diagnostic_fee ?? ""}
           onChange={(event) => setForm((prev) => ({ ...prev, default_diagnostic_fee: Number(event.target.value) || null }))}
         />
-        <Input
-          placeholder="Tarifa de mano de obra"
-          value={form.labor_rate ?? ""}
-          onChange={(event) => setForm((prev) => ({ ...prev, labor_rate: Number(event.target.value) || null }))}
-        />
+        <div className="space-y-2">
+          <Input
+            placeholder="Mano de obra por hora *"
+            value={form.labor_rate ?? ""}
+            onChange={(event) => setForm((prev) => ({ ...prev, labor_rate: Number(event.target.value) || null }))}
+          />
+          <p className="text-xs leading-5 text-[var(--wa-text-secondary)]">
+            Esta tarifa se usa para armar cotizaciones preliminares y dar un total mas realista desde el primer mensaje.
+          </p>
+        </div>
         <Textarea
           className="sm:col-span-2"
           rows={4}

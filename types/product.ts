@@ -2,7 +2,7 @@ import type { ChatAttachment, VehicleContext } from "@/types/chat";
 
 export type AppExperienceMode = "diy" | "pro";
 
-export type ProWorkspaceView = "home" | "client_message" | "chat" | "quote" | "invoice" | "brief";
+export type ProWorkspaceView = "client_message" | "chat" | "quote" | "invoice" | "brief";
 
 export interface BusinessProfile {
   business_name: string;

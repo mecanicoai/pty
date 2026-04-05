@@ -53,7 +53,7 @@ export function CustomerMessageWorkspace({ business, output, loading, onBack, on
       <div className="wa-header-gradient flex items-center justify-between gap-3 px-4 py-4 text-white shadow-md">
         <div>
           <p className="text-sm opacity-80">Flujo principal</p>
-          <h1 className="text-xl font-semibold">Ingresar mensaje del cliente</h1>
+          <h1 className="text-xl font-semibold">Triage y cotizacion inicial</h1>
         </div>
         <Button type="button" variant="secondary" className="border-white/25 bg-white/10 text-white hover:bg-white/20" onClick={onBack}>
           Volver
@@ -62,13 +62,16 @@ export function CustomerMessageWorkspace({ business, output, loading, onBack, on
 
       <div className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-4 px-4 py-4">
         <div className="rounded-[24px] border border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] p-4 shadow-sm">
+          <p className="text-sm leading-6 text-[var(--wa-text-secondary)]">
+            Pega el mensaje del cliente o baja aqui lo importante de su nota de voz para sacar triage, respuesta sugerida y cotizacion preliminar.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input placeholder="Nombre del cliente" value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
             <Input placeholder="Vehiculo (ej. 2018 Civic 1.5T)" value={vehicleLabel} onChange={(event) => setVehicleLabel(event.target.value)} />
             <Textarea
               className="sm:col-span-2"
               rows={6}
-              placeholder="Pega aqui el mensaje del cliente o escribe un resumen claro de lo que reporta."
+              placeholder="Pega aqui el mensaje del cliente, escribe un resumen claro o baja lo que dijo en su nota de voz."
               value={customerMessage}
               onChange={(event) => setCustomerMessage(event.target.value)}
             />
@@ -83,14 +86,14 @@ export function CustomerMessageWorkspace({ business, output, loading, onBack, on
               onChange={(event) => setScreenshot(event.target.files?.[0] ?? null)}
             />
             <Button type="button" variant="secondary" onClick={() => fileRef.current?.click()}>
-              {screenshot ? `Screenshot: ${screenshot.name}` : "Adjuntar screenshot"}
+              {screenshot ? `Captura: ${screenshot.name}` : "Adjuntar captura"}
             </Button>
             <Button
               type="button"
               onClick={() => void onSubmit({ customerMessage, customerName, vehicleLabel, screenshot })}
               disabled={loading || !customerMessage.trim()}
             >
-              {loading ? "Procesando..." : "Generar salida"}
+              {loading ? "Procesando..." : "Generar triage"}
             </Button>
           </div>
         </div>

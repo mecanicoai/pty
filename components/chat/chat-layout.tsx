@@ -9,7 +9,6 @@ import { ModeSelectionScreen } from "@/components/product/mode-selection-screen"
 import { BusinessSetupDrawer } from "@/components/pro/business-setup-drawer";
 import { CustomerMessageWorkspace } from "@/components/pro/customer-message-workspace";
 import { DocumentWorkspace } from "@/components/pro/document-workspace";
-import { ProHome } from "@/components/pro/pro-home";
 import { SessionList } from "@/components/sidebar/session-list";
 import { Button } from "@/components/ui/button";
 import { createEmptyUsageSnapshot, PLAN_DEFINITIONS, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
@@ -72,7 +71,7 @@ function getWelcomeMessage(language: AppLanguage, experienceMode: AppExperienceM
   }
 
   return language === "es"
-    ? "Que tal. Dime el ano, marca, modelo y la falla detallada del vehiculo para ayudarte a entender mejor que revisar."
+    ? "Dime el ano, marca, modelo y la falla detallada del vehiculo para ayudarte a entender mejor que revisar."
     : "Tell me the year, make, model, and the detailed issue so I can help you understand what to check first.";
 }
 
@@ -199,7 +198,7 @@ export function ChatLayout() {
   const [usage, setUsage] = useState<PlanUsageSnapshot>(createEmptyUsageSnapshot("free"));
   const [selectedMode, setSelectedModeState] = useState<AppExperienceMode | null>(null);
   const [businessProfile, setBusinessProfileState] = useState<BusinessProfile | null>(null);
-  const [proView, setProView] = useState<ProWorkspaceView>("home");
+  const [proView, setProView] = useState<ProWorkspaceView>("chat");
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [workflowOutput, setWorkflowOutput] = useState<ProWorkflowOutput | null>(null);
   const [lastVehicleContext, setLastVehicleContextState] = useState<VehicleContext | null>(null);
@@ -220,6 +219,10 @@ export function ChatLayout() {
       return activeSession.messages;
     }
 
+    if (currentChatExperienceMode === "diy") {
+      return [];
+    }
+
     return [
       {
         id: `welcome-${currentChatExperienceMode}`,
@@ -229,6 +232,8 @@ export function ChatLayout() {
       }
     ];
   }, [activeSession?.messages, currentChatExperienceMode, language, plan]);
+
+  const showDiyHome = currentChatExperienceMode === "diy" && !activeSession?.messages.length;
 
   useEffect(() => {
     const savedDark = localStorage.getItem(PREF_KEYS.darkMode);
@@ -371,7 +376,7 @@ export function ChatLayout() {
     setSelectedModeState(mode);
     setMenuOpen(false);
     setHistoryOpen(false);
-    setProView("home");
+    setProView("chat");
     if (mode === "pro" && !businessProfile) {
       setBusinessModalOpen(true);
     }
@@ -502,6 +507,10 @@ export function ChatLayout() {
     }
   }
 
+  async function handleSuggestedPrompt(prompt: string) {
+    await handleSend({ message: prompt, attachments: [] });
+  }
+
   async function handleNewThread() {
     const session = createLocalSession(language, currentChatExperienceMode);
     setSessions((prev) => [session, ...prev]);
@@ -529,7 +538,7 @@ export function ChatLayout() {
     setBusinessProfile(profile);
     setBusinessProfileState(profile);
     if (selectedMode === "pro") {
-      setProView("home");
+      setProView("chat");
     }
   }
 
@@ -656,8 +665,8 @@ export function ChatLayout() {
       const response = await activateTestPlan(nextPlan);
       setPlan(response.plan);
       setUsage(response.usage);
-      if (selectedMode === "pro" && response.plan !== "pro") {
-        setProView("home");
+      if (selectedMode === "pro") {
+        setProView("chat");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo activar el plan de prueba.");
@@ -668,6 +677,31 @@ export function ChatLayout() {
 
   const usageLabel = getPlanUsageLabel(language, plan, usage);
   const isProUnlocked = plan === "pro";
+  const proActions =
+    selectedMode === "pro"
+      ? [
+          {
+            id: "triage",
+            label: language === "es" ? "Triage y cotizacion" : "Triage and quote",
+            onClick: () => (isProUnlocked ? setProView("client_message") : setPricingOpen(true))
+          },
+          {
+            id: "quote",
+            label: language === "es" ? "Cotizacion" : "Quote",
+            onClick: () => (isProUnlocked ? setProView("quote") : setPricingOpen(true))
+          },
+          {
+            id: "invoice",
+            label: language === "es" ? "Factura" : "Invoice",
+            onClick: () => (isProUnlocked ? setProView("invoice") : setPricingOpen(true))
+          },
+          {
+            id: "brief",
+            label: language === "es" ? "Brief interno" : "Internal brief",
+            onClick: () => (isProUnlocked ? setProView("brief") : setPricingOpen(true))
+          }
+        ]
+      : [];
 
   if (loadingInit) {
     return (
@@ -692,12 +726,16 @@ export function ChatLayout() {
               title={activeSession?.title || getDefaultSessionTitle(language, currentChatExperienceMode)}
               language={language}
               isDarkMode={isDarkMode}
+              mode={currentChatExperienceMode}
               messages={displayedMessages}
               loading={loadingReply}
+              showDiyHome={showDiyHome}
               disabled={!installReady}
               plan={plan}
               usageLabel={usageLabel}
+              proActions={proActions}
               onSend={handleSend}
+              onSuggestedPrompt={handleSuggestedPrompt}
               onNewThread={handleNewThread}
               onOpenHistory={() => setHistoryOpen(true)}
               onOpenIntake={() => setVehicleModalOpen(true)}
@@ -719,24 +757,13 @@ export function ChatLayout() {
         </div>
       ) : null}
 
-      {selectedMode === "pro" && proView === "home" && businessProfile ? (
-        <ProHome
-          business={businessProfile}
-          proEnabled={isProUnlocked}
-          onSelect={(view) => setProView(view)}
-          onEditBusiness={() => setBusinessModalOpen(true)}
-          onOpenPlans={() => setPricingOpen(true)}
-          onSwitchMode={() => switchMode("diy")}
-        />
-      ) : null}
-
       {selectedMode === "pro" && !businessProfile ? (
         <section className="flex min-h-screen flex-col items-center justify-center bg-[var(--wa-bg-app)] px-4">
           <div className="w-full max-w-[520px] rounded-[28px] bg-[var(--wa-bg-sidebar)] p-6 shadow-[var(--wa-shadow-md)]">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--mech-orange)]">Para los Pros</p>
             <h1 className="mt-3 text-2xl font-semibold text-[var(--wa-text-primary)]">Configura tu negocio primero</h1>
             <p className="mt-3 text-sm leading-6 text-[var(--wa-text-secondary)]">
-              Antes de abrir el flujo Pro, guarda el nombre del negocio, WhatsApp, tipo de taller, moneda y link de pago.
+              Antes de abrir el flujo Pro, guarda el nombre del negocio, WhatsApp, tipo de taller, moneda, link de pago y mano de obra por hora.
             </p>
             <div className="mt-5 flex gap-2">
               <Button type="button" onClick={() => setBusinessModalOpen(true)}>
@@ -755,7 +782,7 @@ export function ChatLayout() {
           business={businessProfile}
           output={workflowOutput}
           loading={workflowLoading}
-          onBack={() => setProView("home")}
+          onBack={() => setProView("chat")}
           onSubmit={handleCustomerMessageSubmit}
         />
       ) : null}
@@ -765,7 +792,7 @@ export function ChatLayout() {
           title="Cotizacion"
           business={businessProfile}
           initialDraft={createQuoteDocumentDraft(businessProfile, workflowOutput)}
-          onBack={() => setProView("home")}
+          onBack={() => setProView("chat")}
         />
       ) : null}
 
@@ -774,7 +801,7 @@ export function ChatLayout() {
           title="Factura"
           business={businessProfile}
           initialDraft={createInvoiceDocumentDraft(businessProfile, workflowOutput)}
-          onBack={() => setProView("home")}
+          onBack={() => setProView("chat")}
         />
       ) : null}
 
@@ -784,7 +811,7 @@ export function ChatLayout() {
           business={businessProfile}
           initialDraft={createBriefDocumentDraft(workflowOutput)}
           showAmount={false}
-          onBack={() => setProView("home")}
+          onBack={() => setProView("chat")}
         />
       ) : null}
 
