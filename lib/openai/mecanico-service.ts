@@ -9,11 +9,11 @@ import {
 import { shouldUseWebSearch } from "@/lib/openai/should-use-web-search";
 import type { AppLanguage, AppMode, ChatAttachment, PersistedMessage, VehicleContext } from "@/types/chat";
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-5.4-2026-03-05";
+const DEFAULT_MODEL = process.env.ASSISTANT_MODEL_ID?.trim() || process.env.OPENAI_MODEL?.trim() || "assistant-latest";
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.ASSISTANT_API_KEY || process.env.OPENAI_API_KEY
 });
 
 function extractOutputText(response: any): string {
@@ -171,8 +171,8 @@ export interface MecanicoServiceOutput {
 }
 
 export async function runMecanicoService(input: MecanicoServiceInput): Promise<MecanicoServiceOutput> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY no esta configurada.");
+  if (!process.env.ASSISTANT_API_KEY && !process.env.OPENAI_API_KEY) {
+    throw new Error("ASSISTANT_API_KEY no esta configurada.");
   }
 
   const attachments = normalizeAttachments(input.attachments ?? []);

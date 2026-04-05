@@ -5,7 +5,7 @@ import { ZodError } from "zod";
 import { verifyGooglePlayOneTimePurchase } from "@/lib/purchases/google-play";
 import { ApiError, isApiError } from "@/lib/security/api-error";
 import { issueInstallToken } from "@/lib/security/install-tokens";
-import { getPlanUsageSnapshot } from "@/lib/security/plan-usage";
+import { createEmptyUsageSnapshot } from "@/lib/billing/plans";
 import { createRequestId } from "@/lib/security/request";
 import { purchaseVerificationSchema } from "@/lib/validation/purchase";
 
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       installId: parsed.installId,
       entitlement: "verified_purchase",
       plan,
+      usage: null,
       expiresInSeconds: 60 * 60 * 24 * 30,
       purchase: {
         packageName: verified.packageName,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
         expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
         entitlement: issued.payload.entitlement,
         plan: issued.payload.plan,
-        usage: getPlanUsageSnapshot(plan, parsed.installId),
+        usage: createEmptyUsageSnapshot(plan),
         purchase: issued.payload.purchase,
         requestId
       },

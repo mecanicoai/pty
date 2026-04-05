@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { getDefaultPlan } from "@/lib/billing/plans";
+import { createEmptyUsageSnapshot, getDefaultPlan } from "@/lib/billing/plans";
 import { ApiError, isApiError } from "@/lib/security/api-error";
 import { createIntegrityRequestHash } from "@/lib/security/integrity-challenge";
 import { issueInstallToken, issueIntegrityChallenge, isVerifiedAccessRequired } from "@/lib/security/install-tokens";
-import { getPlanUsageSnapshot } from "@/lib/security/plan-usage";
 import { createRequestId, getClientIp } from "@/lib/security/request";
 import { installRequestSchema } from "@/lib/validation/install";
 
@@ -33,7 +32,7 @@ export async function POST(request: NextRequest) {
         {
           installId: parsed.installId,
           plan: defaultPlan,
-          usage: getPlanUsageSnapshot(defaultPlan, parsed.installId),
+          usage: createEmptyUsageSnapshot(defaultPlan),
           integrityRequired: true,
           integrity: {
             challengeToken: challenge.token,
@@ -51,6 +50,7 @@ export async function POST(request: NextRequest) {
       installId: parsed.installId,
       entitlement: "anonymous",
       plan: defaultPlan,
+      usage: null,
       expiresInSeconds: 60 * 60 * 24 * 7
     });
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         token: issued.token,
         expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
         plan: issued.payload.plan,
-        usage: getPlanUsageSnapshot(issued.payload.plan, parsed.installId),
+        usage: createEmptyUsageSnapshot(issued.payload.plan),
         integrityRequired: false,
         requestId
       },

@@ -22,6 +22,7 @@ import {
   getStoredUsage,
   isTestPlanOverrideEnabled,
   registerNativeInstallBridge,
+  storeInstallToken,
   storeUsageSnapshot
 } from "@/lib/chat/install-auth";
 import { nativeBridgeEvents, registerNativeMediaBridge, type SharedIntentPayload } from "@/lib/chat/native-bridge";
@@ -538,6 +539,11 @@ export function ChatLayout() {
     }
 
     window.addEventListener(nativeBridgeEvents.sharedIntent, handleSharedIntent);
+    if (typeof window !== "undefined" && window.__mecanicoPendingSharedIntent) {
+      const pendingDetail = window.__mecanicoPendingSharedIntent as SharedIntentPayload;
+      window.__mecanicoPendingSharedIntent = undefined;
+      window.dispatchEvent(new CustomEvent(nativeBridgeEvents.sharedIntent, { detail: pendingDetail }));
+    }
     return () => {
       window.removeEventListener(nativeBridgeEvents.sharedIntent, handleSharedIntent);
     };
@@ -813,6 +819,9 @@ export function ChatLayout() {
         sessionId: targetSession.id
       });
 
+      if (response.token) {
+        storeInstallToken(response.token, response.expiresAt);
+      }
       setPlan(response.plan);
       setUsage(response.usage);
       storeUsageSnapshot(response.usage);
@@ -1050,6 +1059,9 @@ export function ChatLayout() {
         sessionId: undefined
       });
 
+      if (response.token) {
+        storeInstallToken(response.token, response.expiresAt);
+      }
       setPlan(response.plan);
       setUsage(response.usage);
       storeUsageSnapshot(response.usage);

@@ -1,24 +1,23 @@
 # Mecanico v1
 
-Spanish-first AI diagnostic chat app for mechanics and shop technicians.
+Spanish-first diagnostic and workflow app for mechanics and shop technicians.
 
 ## Stack
 
 - Next.js (App Router) + React + TypeScript + Tailwind
-- One backend endpoint for OpenAI chat
+- One backend endpoint for assistant chat
 - Local browser storage for chat history and vehicle context
-- OpenAI Responses API on the server
+- Responses API on the server
 - Signed install tokens for device-level access control
 - Optional Google Play license verification for Android releases
 - Subscription tiers with plan-aware usage limits
 
 ## Core Security Rules
 
-- `OPENAI_API_KEY` exists only on the backend.
+- `ASSISTANT_API_KEY` exists only on the backend.
 - Protected Mecanico instructions live in `lib/openai/mecanico-prompt.ts`.
 - The frontend never sends or exposes the system prompt.
-- The backend model defaults to `gpt-5.4-2026-03-05`.
-- You can override it with `OPENAI_MODEL` in `.env.local`.
+- The backend can read `ASSISTANT_MODEL_ID` from `.env.local`.
 - Chat requests require a signed install token.
 - Backend rate limiting is enforced per install.
 - When `REQUIRE_PLAY_INTEGRITY_LICENSE=true`, chat access requires a verified Google Play licensed install.
@@ -68,11 +67,11 @@ Decision helper is server-side in:
 
 - `lib/openai/should-use-web-search.ts`
 
-OpenAI service module:
+Assistant service module:
 
 - `lib/openai/mecanico-service.ts`
 
-When the decision is true, OpenAI is called with:
+When the decision is true, the assistant service is called with:
 
 - `tools: [{ type: "web_search" }]`
 
@@ -87,8 +86,8 @@ When the decision is true, OpenAI is called with:
    Copy-Item .env.example .env.local
    ```
 3. Set your value in `.env.local`:
-   - `OPENAI_API_KEY`
-   - `OPENAI_MODEL` (optional; defaults to `gpt-5.4-2026-03-05`)
+   - `ASSISTANT_API_KEY`
+   - `ASSISTANT_MODEL_ID`
    - `INSTALL_TOKEN_SECRET`
    - `REQUIRE_PLAY_INTEGRITY_LICENSE`
    - `REQUIRE_PURCHASE_VERIFICATION`
@@ -96,6 +95,7 @@ When the decision is true, OpenAI is called with:
    - `CHAT_RATE_LIMIT_PER_DAY`
    - `ALLOW_TEST_PLAN_OVERRIDE`
    - `NEXT_PUBLIC_ALLOW_TEST_PLAN_OVERRIDE`
+   - `PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER`
    - `GOOGLE_PLAY_PACKAGE_NAME`
    - `GOOGLE_PLAY_BASIC_PRODUCT_ID`
    - `GOOGLE_PLAY_PRO_PRODUCT_ID`
@@ -126,7 +126,7 @@ Open `http://localhost:3000`.
 
 ## Notes
 
-- Legacy files from the previous single-file app (`index.html`, `serve-local.js`) remain in the repository and are not used by the Next.js runtime.
+- Legacy `index.html` from the earlier single-file prototype remains in the repository and is not used by the Next.js runtime.
 - For Android WebView wrappers, the web app now supports an optional native bridge:
   - `window.MecanicoAndroid.startVoiceInput(language)`
   - `window.MecanicoAndroid.stopVoiceInput()`

@@ -1,49 +1,38 @@
 import { createEmptyUsageSnapshot, getPlanDefinition, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
 import { ApiError } from "@/lib/security/api-error";
 
-interface UsageRecord {
+export interface UsageRecord {
   totalUsed: number;
   dayKey: string;
   dayUsed: number;
-}
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __mecanicoPlanUsageStore: Map<string, UsageRecord> | undefined;
-}
-
-function getStore() {
-  if (!globalThis.__mecanicoPlanUsageStore) {
-    globalThis.__mecanicoPlanUsageStore = new Map<string, UsageRecord>();
-  }
-  return globalThis.__mecanicoPlanUsageStore;
 }
 
 function getDayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function getRecord(installId: string): UsageRecord {
-  const store = getStore();
+export function createEmptyUsageRecord(): UsageRecord {
+  return {
+    totalUsed: 0,
+    dayKey: getDayKey(),
+    dayUsed: 0
+  };
+}
+
+export function normalizeUsageRecord(record?: Partial<UsageRecord> | null): UsageRecord {
   const today = getDayKey();
-  const existing = store.get(installId);
+  const next: UsageRecord = {
+    totalUsed: Number.isFinite(record?.totalUsed) ? Math.max(0, Number(record?.totalUsed)) : 0,
+    dayKey: typeof record?.dayKey === "string" && record.dayKey ? record.dayKey : today,
+    dayUsed: Number.isFinite(record?.dayUsed) ? Math.max(0, Number(record?.dayUsed)) : 0
+  };
 
-  if (!existing) {
-    const next: UsageRecord = {
-      totalUsed: 0,
-      dayKey: today,
-      dayUsed: 0
-    };
-    store.set(installId, next);
-    return next;
+  if (next.dayKey !== today) {
+    next.dayKey = today;
+    next.dayUsed = 0;
   }
 
-  if (existing.dayKey !== today) {
-    existing.dayKey = today;
-    existing.dayUsed = 0;
-  }
-
-  return existing;
+  return next;
 }
 
 function buildSnapshot(plan: SubscriptionPlan, record: UsageRecord): PlanUsageSnapshot {
@@ -60,15 +49,15 @@ function buildSnapshot(plan: SubscriptionPlan, record: UsageRecord): PlanUsageSn
   };
 }
 
-export function getPlanUsageSnapshot(plan: SubscriptionPlan, installId: string): PlanUsageSnapshot {
-  if (!installId) {
+export function getPlanUsageSnapshot(plan: SubscriptionPlan, record?: Partial<UsageRecord> | null): PlanUsageSnapshot {
+  if (!record) {
     return createEmptyUsageSnapshot(plan);
   }
-  return buildSnapshot(plan, getRecord(installId));
+  return buildSnapshot(plan, normalizeUsageRecord(record));
 }
 
-export function assertPlanAllowsChat(plan: SubscriptionPlan, installId: string) {
-  const snapshot = getPlanUsageSnapshot(plan, installId);
+export function assertPlanAllowsChat(plan: SubscriptionPlan, record?: Partial<UsageRecord> | null) {
+  const snapshot = getPlanUsageSnapshot(plan, record);
 
   if (snapshot.totalLimit !== null && snapshot.totalRemaining !== null && snapshot.totalRemaining <= 0) {
     throw new ApiError({
@@ -91,12 +80,12 @@ export function assertPlanAllowsChat(plan: SubscriptionPlan, installId: string) 
   return snapshot;
 }
 
-export function assertPlanAllowsAttachments(plan: SubscriptionPlan, installId: string, attachmentCount: number) {
+export function assertPlanAllowsAttachments(plan: SubscriptionPlan, record: Partial<UsageRecord> | null | undefined, attachmentCount: number) {
   if (!attachmentCount) {
-    return getPlanUsageSnapshot(plan, installId);
+    return getPlanUsageSnapshot(plan, record);
   }
 
-  const snapshot = getPlanUsageSnapshot(plan, installId);
+  const snapshot = getPlanUsageSnapshot(plan, record);
   if (!snapshot.features.attachments) {
     throw new ApiError({
       status: 402,
@@ -109,9 +98,12 @@ export function assertPlanAllowsAttachments(plan: SubscriptionPlan, installId: s
   return snapshot;
 }
 
-export function recordPlanUsage(plan: SubscriptionPlan, installId: string): PlanUsageSnapshot {
-  const record = getRecord(installId);
-  record.totalUsed += 1;
-  record.dayUsed += 1;
-  return buildSnapshot(plan, record);
+export function recordPlanUsage(plan: SubscriptionPlan, record?: Partial<UsageRecord> | null) {
+  const nextRecord = normalizeUsageRecord(record);
+  nextRecord.totalUsed += 1;
+  nextRecord.dayUsed += 1;
+  return {
+    usage: buildSnapshot(plan, nextRecord),
+    record: nextRecord
+  };
 }

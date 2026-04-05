@@ -3,6 +3,7 @@ package com.mecanico.app.integration
 import android.content.Context
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.StandardIntegrityManager
+import com.mecanico.app.BuildConfig
 import kotlinx.coroutines.tasks.await
 
 class PlayIntegrityManager(
@@ -25,11 +26,10 @@ class PlayIntegrityManager(
     }
 
     private fun cloudProjectNumber(): Long {
-        // TODO: Replace this hardcoded placeholder with a real Play Integrity project number source.
-        // Recommended options:
-        // - BuildConfig field
-        // - encrypted remote config
-        // - resource overlay per environment
-        return 1234567890123L
+        val projectNumber = BuildConfig.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER
+        require(projectNumber > 0L) {
+            "PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER no esta configurado."
+        }
+        return projectNumber
     }
 }

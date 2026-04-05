@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val playIntegrityCloudProjectNumber =
+    (providers.gradleProperty("PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER").orNull
+        ?: System.getenv("PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER")
+        ?: "0")
+        .trim()
+        .ifBlank { "0" }
+
 android {
     namespace = "com.mecanico.app"
     compileSdk = 35
@@ -16,6 +23,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "MECANICO_BASE_URL", "\"https://pty-dun.vercel.app\"")
+        buildConfigField("long", "PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER", "${playIntegrityCloudProjectNumber}L")
     }
 
     buildTypes {

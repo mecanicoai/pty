@@ -209,10 +209,20 @@ function escapePdfText(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
+function sanitizePdfText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, "-");
+}
+
 function stringToPdfBytes(value: string) {
   const bytes: number[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index);
+  const safeValue = sanitizePdfText(value);
+  for (let index = 0; index < safeValue.length; index += 1) {
+    const code = safeValue.charCodeAt(index);
     bytes.push(code <= 255 ? code : 63);
   }
   return bytes;

@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { getDefaultPlan, type SubscriptionPlan } from "@/lib/billing/plans";
 import { ApiError } from "@/lib/security/api-error";
+import { createEmptyUsageRecord, normalizeUsageRecord, type UsageRecord } from "@/lib/security/plan-usage";
 
 export type InstallEntitlement = "anonymous" | "licensed_install" | "verified_purchase";
 
@@ -10,6 +11,7 @@ export interface InstallTokenPayload {
   installId: string;
   entitlement: InstallEntitlement;
   plan: SubscriptionPlan;
+  usage: UsageRecord;
   iat: number;
   exp: number;
   purchase?: {
@@ -58,6 +60,7 @@ export function issueInstallToken(input: {
   installId: string;
   entitlement: InstallEntitlement;
   plan?: SubscriptionPlan;
+  usage?: Partial<UsageRecord> | null;
   expiresInSeconds: number;
   purchase?: InstallTokenPayload["purchase"];
 }) {
@@ -67,6 +70,7 @@ export function issueInstallToken(input: {
     installId: input.installId,
     entitlement: input.entitlement,
     plan: input.plan ?? getDefaultPlan(),
+    usage: normalizeUsageRecord(input.usage ?? createEmptyUsageRecord()),
     iat: now,
     exp: now + input.expiresInSeconds,
     purchase: input.purchase
@@ -121,6 +125,8 @@ export function verifyInstallToken(token: string): InstallTokenPayload {
       message: "El token de instalacion no es valido."
     });
   }
+
+  payload.usage = normalizeUsageRecord(payload.usage);
 
   if (payload.exp <= Math.floor(Date.now() / 1000)) {
     throw new ApiError({

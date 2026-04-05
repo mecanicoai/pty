@@ -19,6 +19,8 @@ export interface ChatHistoryItem {
 export interface ChatResponse extends DiagnosticResponse {
   plan: SubscriptionPlan;
   usage: PlanUsageSnapshot;
+  token?: string;
+  expiresAt?: string;
   sessionId?: string;
   requestId?: string;
 }

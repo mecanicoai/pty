@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { getDefaultPlan } from "@/lib/billing/plans";
+import { createEmptyUsageSnapshot, getDefaultPlan } from "@/lib/billing/plans";
 import { ApiError, isApiError } from "@/lib/security/api-error";
 import { issueInstallToken } from "@/lib/security/install-tokens";
-import { getPlanUsageSnapshot } from "@/lib/security/plan-usage";
 import { verifyPlayIntegrityInstall } from "@/lib/security/play-integrity";
 import { createRequestId } from "@/lib/security/request";
 import { integrityVerificationSchema } from "@/lib/validation/integrity";
@@ -23,6 +22,7 @@ export async function POST(request: NextRequest) {
       installId: parsed.installId,
       entitlement: "licensed_install",
       plan: defaultPlan,
+      usage: null,
       expiresInSeconds: 60 * 60 * 24 * 30
     });
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
         entitlement: issued.payload.entitlement,
         plan: issued.payload.plan,
-        usage: getPlanUsageSnapshot(defaultPlan, parsed.installId),
+        usage: createEmptyUsageSnapshot(defaultPlan),
         integrity: verified,
         requestId
       },

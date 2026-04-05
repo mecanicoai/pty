@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { createEmptyUsageSnapshot } from "@/lib/billing/plans";
 import { ApiError, isApiError } from "@/lib/security/api-error";
 import { issueInstallToken, type InstallEntitlement } from "@/lib/security/install-tokens";
-import { getPlanUsageSnapshot } from "@/lib/security/plan-usage";
 import { createRequestId } from "@/lib/security/request";
 import { testPlanOverrideSchema } from "@/lib/validation/test-plan";
 
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       installId: parsed.installId,
       entitlement,
       plan: parsed.plan,
+      usage: null,
       expiresInSeconds: 60 * 60 * 24 * 30
     });
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
         expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
         entitlement: issued.payload.entitlement,
         plan: issued.payload.plan,
-        usage: getPlanUsageSnapshot(parsed.plan, parsed.installId),
+        usage: createEmptyUsageSnapshot(parsed.plan),
         requestId
       },
       { status: 200, headers: { "x-request-id": requestId } }

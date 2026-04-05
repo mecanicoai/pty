@@ -5,7 +5,7 @@ import { runMecanicoService } from "@/lib/openai/mecanico-service";
 import { ApiError, isApiError } from "@/lib/security/api-error";
 import { assertPlanAllowsAttachments, assertPlanAllowsChat, recordPlanUsage } from "@/lib/security/plan-usage";
 import { assertChatRateLimit } from "@/lib/security/rate-limit";
-import { hasVerifiedAccess, isVerifiedAccessRequired } from "@/lib/security/install-tokens";
+import { hasVerifiedAccess, isVerifiedAccessRequired, issueInstallToken } from "@/lib/security/install-tokens";
 import { createRequestId, getClientIp, requireInstallAuth } from "@/lib/security/request";
 import { chatRequestSchema } from "@/lib/validation/chat";
 
@@ -29,7 +29,7 @@ function classifyChatError(error: unknown) {
   if (maybeError?.status === 429) {
     return new ApiError({
       status: 429,
-      code: "openai_rate_limited",
+      code: "assistant_rate_limited",
       message: "El servicio esta ocupado. Intenta de nuevo en un momento."
     });
   }
@@ -42,10 +42,13 @@ function classifyChatError(error: unknown) {
     });
   }
 
-  if (typeof maybeError?.message === "string" && maybeError.message.includes("OPENAI_API_KEY")) {
+  if (
+    typeof maybeError?.message === "string" &&
+    (maybeError.message.includes("ASSISTANT_API_KEY") || maybeError.message.includes("OPENAI_API_KEY"))
+  ) {
     return new ApiError({
       status: 503,
-      code: "openai_not_configured",
+      code: "assistant_not_configured",
       message: maybeError.message
     });
   }
@@ -71,11 +74,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const rateLimit = assertChatRateLimit(auth.installId);
     const body = await request.json().catch(() => ({}));
     const parsed = chatRequestSchema.parse(body);
-    assertPlanAllowsAttachments(auth.plan, auth.installId, parsed.attachments.length);
-    assertPlanAllowsChat(auth.plan, auth.installId);
+    assertPlanAllowsAttachments(auth.plan, auth.usage, parsed.attachments.length);
+    assertPlanAllowsChat(auth.plan, auth.usage);
+    const rateLimit = assertChatRateLimit(auth.installId);
 
     if (parsed.sessionId && parsed.sessionId.length > 120) {
       throw new ApiError({
@@ -101,7 +104,16 @@ export async function POST(request: NextRequest) {
       recentMessages,
       attachments: parsed.attachments
     });
-    const usage = recordPlanUsage(auth.plan, auth.installId);
+    const nextUsage = recordPlanUsage(auth.plan, auth.usage);
+    const remainingSeconds = Math.max(auth.exp - Math.floor(Date.now() / 1000), 60 * 30);
+    const refreshed = issueInstallToken({
+      installId: auth.installId,
+      entitlement: auth.entitlement,
+      plan: auth.plan,
+      usage: nextUsage.record,
+      expiresInSeconds: remainingSeconds,
+      purchase: auth.purchase
+    });
 
     console.info(
       JSON.stringify({
@@ -110,9 +122,8 @@ export async function POST(request: NextRequest) {
         installId: auth.installId,
         ip: getClientIp(request),
         durationMs: Date.now() - startedAt,
-        model: completion.model,
         plan: auth.plan,
-        planUsage: usage,
+        planUsage: nextUsage.usage,
         usedWebSearch: completion.usedWebSearch,
         minuteRemaining: rateLimit.minuteRemaining,
         dayRemaining: rateLimit.dayRemaining
@@ -124,7 +135,9 @@ export async function POST(request: NextRequest) {
         ...completion.parsed,
         used_web_search: completion.usedWebSearch,
         plan: auth.plan,
-        usage,
+        usage: nextUsage.usage,
+        token: refreshed.token,
+        expiresAt: new Date(refreshed.payload.exp * 1000).toISOString(),
         sessionId: parsed.sessionId,
         requestId
       },
