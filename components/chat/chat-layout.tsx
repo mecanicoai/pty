@@ -317,6 +317,7 @@ export function ChatLayout() {
   });
   const [importLeadAttachments, setImportLeadAttachments] = useState<ChatAttachment[]>([]);
   const [importLeadSourceApp, setImportLeadSourceApp] = useState<string | undefined>(undefined);
+  const [importLeadSessionId, setImportLeadSessionId] = useState<string | null>(null);
   const [pendingImportedLead, setPendingImportedLead] = useState<PendingImportedLead | null>(null);
   const [pendingSharedIntent, setPendingSharedIntent] = useState<SharedIntentPayload | null>(null);
 
@@ -586,13 +587,14 @@ export function ChatLayout() {
       setImportLeadDraft(pendingImportedLead.draft);
       setImportLeadAttachments(pendingImportedLead.attachments);
       setImportLeadSourceApp(pendingImportedLead.sourceApp);
+      setImportLeadSessionId(pendingImportedLead.targetSessionId);
       setImportLeadModalOpen(true);
       setPendingImportedLead(null);
       return;
     }
 
     setPendingImportedLead(null);
-    void submitLeadToWorkflow(pendingImportedLead.draft, pendingImportedLead.attachments);
+    void submitLeadToWorkflow(pendingImportedLead.draft, pendingImportedLead.attachments, pendingImportedLead.targetSessionId);
   }, [activeSessionId, businessProfile, pendingImportedLead, sessions]);
 
   function appendAssistantMessage(partial: Omit<UiMessage, "id" | "role" | "createdAt">) {
@@ -685,8 +687,10 @@ export function ChatLayout() {
     }
   }
 
-  async function submitLeadToWorkflow(draft: TriageLeadDraft, attachments: ChatAttachment[]) {
-    if (!activeSession) {
+  async function submitLeadToWorkflow(draft: TriageLeadDraft, attachments: ChatAttachment[], sessionId?: string | null) {
+    const targetSessionId = sessionId ?? activeSessionId;
+    const targetSession = sessions.find((session) => session.id === targetSessionId) ?? null;
+    if (!targetSessionId || !targetSession) {
       return;
     }
 
@@ -702,7 +706,7 @@ export function ChatLayout() {
       return;
     }
 
-    updateActiveSession((session) => ({
+    updateSessionById(targetSessionId, (session) => ({
       ...session,
       pendingProAction: "triage_quote",
       customerName: nextDraft.customerName,
@@ -719,16 +723,19 @@ export function ChatLayout() {
         attachments
       },
       {
-        forceWorkflowMode: true
+        forceWorkflowMode: true,
+        sessionId: targetSessionId
       }
     );
   }
 
   async function handleSend(
     payload: { message: string; attachments: ChatAttachment[] },
-    options?: { forceWorkflowMode?: boolean }
+    options?: { forceWorkflowMode?: boolean; sessionId?: string | null }
   ) {
-    if (!activeSession) {
+    const targetSessionId = options?.sessionId ?? activeSessionId;
+    const targetSession = sessions.find((session) => session.id === targetSessionId) ?? null;
+    if (!targetSessionId || !targetSession) {
       return;
     }
 
@@ -742,14 +749,14 @@ export function ChatLayout() {
       createdAt: now
     };
 
-    const existingMessages = activeSession.messages;
-    const latestWorkflowBefore = getLatestWorkflowFromSession(activeSession);
+    const existingMessages = targetSession.messages;
+    const latestWorkflowBefore = getLatestWorkflowFromSession(targetSession);
     const isCollectingTriage =
-      currentChatExperienceMode === "pro" &&
-      activeSession.pendingProAction === "triage_collect" &&
+      targetSession.experienceMode === "pro" &&
+      targetSession.pendingProAction === "triage_collect" &&
       !options?.forceWorkflowMode;
     const triageCheck = isCollectingTriage ? getMissingTriageFields(messageText) : null;
-    updateActiveSession((session) => ({
+    updateSessionById(targetSessionId, (session) => ({
       ...session,
       language,
       title: deriveTitle(messageText, session.vehicle, language, session.experienceMode),
@@ -767,7 +774,7 @@ export function ChatLayout() {
             ? `Antes de correr el triage me faltan: ${triageCheck.missing.join(", ")}. Mandamelo asi:\nCliente: ...\nVehiculo: ...\nTelefono: ...\nMensaje: ...`
             : `Before I run triage I still need: ${triageCheck.missing.join(", ")}. Send it like this:\nCustomer: ...\nVehicle: ...\nPhone: ...\nMessage: ...`;
 
-        updateActiveSession((session) => ({
+        updateSessionById(targetSessionId, (session) => ({
           ...session,
           messages: [
             ...session.messages,
@@ -786,9 +793,9 @@ export function ChatLayout() {
 
         const isWorkflowMode =
           !!options?.forceWorkflowMode ||
-          currentChatExperienceMode === "pro" &&
+          targetSession.experienceMode === "pro" &&
           !!businessProfile &&
-          ((activeSession.pendingProAction === "triage_quote" || activeSession.pendingProAction === "triage_collect") || !!latestWorkflowBefore);
+          ((targetSession.pendingProAction === "triage_quote" || targetSession.pendingProAction === "triage_collect") || !!latestWorkflowBefore);
       const response = await sendChatRequest({
         message: isWorkflowMode
           ? [
@@ -800,10 +807,10 @@ export function ChatLayout() {
             ].join("\n")
           : messageText,
         attachments: payload.attachments,
-        mode: currentChatExperienceMode === "pro" ? "shop" : "diy",
+        mode: targetSession.experienceMode === "pro" ? "shop" : "diy",
         recentMessages: buildHistory(existingMessages),
-        vehicle: activeSession.vehicle,
-        sessionId: activeSession.id
+        vehicle: targetSession.vehicle,
+        sessionId: targetSession.id
       });
 
       setPlan(response.plan);
@@ -834,7 +841,7 @@ export function ChatLayout() {
               workflowOutput: nextWorkflow,
               documentPreview: {
                 title: "Cotizacion",
-                draft: createQuoteDocumentDraft(businessProfile, nextWorkflow, activeSession.vehicle),
+                draft: createQuoteDocumentDraft(businessProfile, nextWorkflow, targetSession.vehicle),
                 business: businessProfile
               },
             usedWebSearch: response.used_web_search,
@@ -849,7 +856,7 @@ export function ChatLayout() {
             createdAt: assistantCreatedAt
           };
 
-        updateActiveSession((session) => ({
+        updateSessionById(targetSessionId, (session) => ({
           ...session,
           language,
           title: deriveTitle(messageText, session.vehicle, language, session.experienceMode),
@@ -877,7 +884,7 @@ export function ChatLayout() {
       if (code === "plan_limit_reached" || code === "plan_feature_locked") {
         setPricingOpen(true);
       }
-      updateActiveSession((session) => ({
+      updateSessionById(targetSessionId, (session) => ({
         ...session,
         messages: session.messages.filter((message) => message.id !== optimisticUser.id)
       }));
@@ -897,11 +904,12 @@ export function ChatLayout() {
   }
 
   async function handleSubmitImportLead() {
-    await submitLeadToWorkflow(importLeadDraft, importLeadAttachments);
+    await submitLeadToWorkflow(importLeadDraft, importLeadAttachments, importLeadSessionId);
     if (!getMissingLeadFields(importLeadDraft).length) {
       setImportLeadModalOpen(false);
       setImportLeadAttachments([]);
       setImportLeadSourceApp(undefined);
+      setImportLeadSessionId(null);
     }
   }
 
