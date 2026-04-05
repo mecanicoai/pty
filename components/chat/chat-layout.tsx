@@ -52,7 +52,7 @@ const PREF_KEYS = {
 
 function getDefaultSessionTitle(language: AppLanguage, experienceMode: AppExperienceMode) {
   if (experienceMode === "pro") {
-    return language === "es" ? "Maestro Mecanico" : "Master Mechanic";
+    return language === "es" ? "Nuevo cliente" : "New customer";
   }
   return language === "es" ? "Nuevo chat" : "New chat";
 }
@@ -60,8 +60,8 @@ function getDefaultSessionTitle(language: AppLanguage, experienceMode: AppExperi
 function getWelcomeMessage(language: AppLanguage, experienceMode: AppExperienceMode, plan: SubscriptionPlan) {
   if (experienceMode === "pro") {
     return language === "es"
-      ? "Soy tu Maestro Mecanico. Pasa el caso, la falla, el vehiculo y te ayudo a bajarlo a diagnostico, siguiente prueba y trabajo aprobado."
-      : "I am your Master Mechanic. Send the case, the fault, and the vehicle details and I will help turn it into a diagnosis and next step.";
+      ? "Soy tu asistente mecanico y tu maestro para diagnosticar. Pasa el mensaje del cliente, la falla o el vehiculo y te ayudo a bajarlo a triage, siguiente paso y trabajo aprobado. ¿Como te ayudo?"
+      : "I am your mechanic assistant and lead diagnostic guide. Send the customer message, fault, or vehicle details and I will help turn it into triage, next steps, and approved work.";
   }
 
   if (plan === "basic") {
@@ -143,6 +143,12 @@ function normalizeMessageForDisplay(language: AppLanguage, payloadMessage: strin
     return "Aqui va la foto del problema.";
   }
   return payloadMessage;
+}
+
+function buildProActionPrompt(language: AppLanguage) {
+  return language === "es"
+    ? "Pega aqui el texto del cliente o baja lo importante de su nota de voz. Yo te devuelvo memo interno, preguntas pendientes y cotizacion preliminar en este mismo chat."
+    : "Share the customer text here or summarize the voice note. Once you send it, I will turn it into triage, suggested reply, next step, and a preliminary quote in this chat.";
 }
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -371,6 +377,38 @@ export function ChatLayout() {
     );
   }
 
+  function appendAssistantMessage(partial: Omit<UiMessage, "id" | "role" | "createdAt">) {
+    const createdAt = new Date().toISOString();
+    updateActiveSession((session) => ({
+      ...session,
+      messages: [
+        ...session.messages,
+        {
+          id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          role: "assistant",
+          createdAt,
+          ...partial
+        }
+      ],
+      updatedAt: createdAt
+    }));
+  }
+
+  function getLatestWorkflowFromSession(session: LocalChatSession | null) {
+    if (!session) {
+      return null;
+    }
+
+    for (let index = session.messages.length - 1; index >= 0; index -= 1) {
+      const candidate = session.messages[index];
+      if (candidate.workflowOutput) {
+        return candidate.workflowOutput;
+      }
+    }
+
+    return null;
+  }
+
   function switchMode(mode: AppExperienceMode) {
     setSelectedMode(mode);
     setSelectedModeState(mode);
@@ -445,6 +483,7 @@ export function ChatLayout() {
     };
 
     const existingMessages = activeSession.messages;
+    const latestWorkflowBefore = getLatestWorkflowFromSession(activeSession);
     updateActiveSession((session) => ({
       ...session,
       language,
@@ -457,8 +496,17 @@ export function ChatLayout() {
     setError(null);
 
     try {
+      const isWorkflowMode = currentChatExperienceMode === "pro" && !!businessProfile && (activeSession.pendingProAction === "triage_quote" || !!latestWorkflowBefore);
       const response = await sendChatRequest({
-        message: messageText,
+        message: isWorkflowMode
+          ? [
+              "Mensaje del cliente:",
+              messageText,
+              latestWorkflowBefore
+                ? "Actualiza el memo interno, las preguntas pendientes y la cotizacion preliminar con esta nueva respuesta del cliente."
+                : "Genera una ruta de triage profesional para cliente y taller. Si hay base suficiente, arma una cotizacion preliminar."
+            ].join("\n")
+          : messageText,
         attachments: payload.attachments,
         mode: currentChatExperienceMode === "pro" ? "shop" : "diy",
         recentMessages: buildHistory(existingMessages),
@@ -466,26 +514,63 @@ export function ChatLayout() {
         sessionId: activeSession.id
       });
 
-      const assistantMessage: UiMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        text: response.summary,
-        diagnostic: response as DiagnosticResponse,
-        usedWebSearch: response.used_web_search,
-        createdAt: new Date().toISOString()
-      };
-
       setPlan(response.plan);
       setUsage(response.usage);
       storeUsageSnapshot(response.usage);
+
+      const assistantCreatedAt = new Date().toISOString();
+      const nextWorkflow = isWorkflowMode && businessProfile
+        ? buildProWorkflowOutput({
+            customerMessage: messageText,
+            customerName: latestWorkflowBefore?.customerName,
+            vehicleLabel: latestWorkflowBefore?.vehicleLabel,
+            business: businessProfile,
+            diagnostic: response,
+            vehicle: activeSession.vehicle,
+            language
+          })
+        : null;
+      const assistantMessage: UiMessage = nextWorkflow && businessProfile
+        ? {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            text:
+              language === "es"
+                ? latestWorkflowBefore
+                  ? "Listo. Ya actualice el memo interno y la cotizacion preliminar con la nueva info."
+                  : "Listo. Primero te dejo el memo interno y abajo la cotizacion preliminar para el cliente."
+                : "First I left the internal shop memo, then the preliminary customer quote in this chat.",
+            workflowOutput: nextWorkflow,
+            documentPreview: {
+              title: "Cotizacion",
+              draft: createQuoteDocumentDraft(businessProfile, nextWorkflow),
+              business: businessProfile
+            },
+            usedWebSearch: response.used_web_search,
+            createdAt: assistantCreatedAt
+          }
+        : {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            text: response.summary,
+            diagnostic: response as DiagnosticResponse,
+            usedWebSearch: response.used_web_search,
+            createdAt: assistantCreatedAt
+          };
 
       updateActiveSession((session) => ({
         ...session,
         language,
         title: deriveTitle(messageText, session.vehicle, language, session.experienceMode),
         messages: [...session.messages, assistantMessage],
+        pendingProAction: isWorkflowMode ? "triage_quote" : session.pendingProAction ?? null,
         updatedAt: assistantMessage.createdAt
       }));
+
+      if (nextWorkflow) {
+        setWorkflowOutput(nextWorkflow);
+        setLastWorkflowOutput(nextWorkflow);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo enviar el mensaje.");
       const code = (err as { code?: string } | undefined)?.code;
@@ -509,6 +594,78 @@ export function ChatLayout() {
 
   async function handleSuggestedPrompt(prompt: string) {
     await handleSend({ message: prompt, attachments: [] });
+  }
+
+  function handleProActionInChat(action: "triage" | "quote" | "invoice" | "brief") {
+    if (!activeSession) {
+      return;
+    }
+
+    if (!businessProfile) {
+      setBusinessModalOpen(true);
+      return;
+    }
+
+    if (!isProUnlocked) {
+      setPricingOpen(true);
+      return;
+    }
+
+    if (action === "triage") {
+      updateActiveSession((session) => ({
+        ...session,
+        pendingProAction: "triage_quote",
+        updatedAt: new Date().toISOString()
+      }));
+      appendAssistantMessage({
+        text: buildProActionPrompt(language)
+      });
+      return;
+    }
+
+    const latestWorkflow = getLatestWorkflowFromSession(activeSession) ?? workflowOutput;
+    if (!latestWorkflow) {
+      appendAssistantMessage({
+        text:
+          language === "es"
+            ? "Primero corre Triage y cotizacion inicial en este chat para sacar la informacion base del cliente."
+            : "Run the triage and quote step first so there is enough customer information to build this document."
+      });
+      return;
+    }
+
+    if (action === "quote") {
+      appendAssistantMessage({
+        text: language === "es" ? "Te dejo la cotizacion lista en este chat." : "Here is the quote inside this chat.",
+        documentPreview: {
+          title: "Cotizacion",
+          draft: createQuoteDocumentDraft(businessProfile, latestWorkflow),
+          business: businessProfile
+        }
+      });
+      return;
+    }
+
+    if (action === "invoice") {
+      appendAssistantMessage({
+        text: language === "es" ? "Te dejo la factura lista en este chat." : "Here is the invoice inside this chat.",
+        documentPreview: {
+          title: "Factura",
+          draft: createInvoiceDocumentDraft(businessProfile, latestWorkflow),
+          business: businessProfile
+        }
+      });
+      return;
+    }
+
+    appendAssistantMessage({
+      text: language === "es" ? "Te dejo el brief interno listo en este chat." : "Here is the internal brief inside this chat.",
+      documentPreview: {
+        title: "Brief interno",
+        draft: createBriefDocumentDraft(latestWorkflow),
+        business: businessProfile
+      }
+    });
   }
 
   async function handleNewThread() {
@@ -683,22 +840,22 @@ export function ChatLayout() {
           {
             id: "triage",
             label: language === "es" ? "Triage y cotizacion" : "Triage and quote",
-            onClick: () => (isProUnlocked ? setProView("client_message") : setPricingOpen(true))
+            onClick: () => handleProActionInChat("triage")
           },
           {
             id: "quote",
             label: language === "es" ? "Cotizacion" : "Quote",
-            onClick: () => (isProUnlocked ? setProView("quote") : setPricingOpen(true))
+            onClick: () => handleProActionInChat("quote")
           },
           {
             id: "invoice",
             label: language === "es" ? "Factura" : "Invoice",
-            onClick: () => (isProUnlocked ? setProView("invoice") : setPricingOpen(true))
+            onClick: () => handleProActionInChat("invoice")
           },
           {
             id: "brief",
             label: language === "es" ? "Brief interno" : "Internal brief",
-            onClick: () => (isProUnlocked ? setProView("brief") : setPricingOpen(true))
+            onClick: () => handleProActionInChat("brief")
           }
         ]
       : [];
@@ -825,7 +982,13 @@ export function ChatLayout() {
             <div className="mb-3 flex items-center justify-between">
               <p className="text-base font-semibold text-[var(--wa-text-primary)]">{language === "es" ? "Historial" : "History"}</p>
               <Button type="button" variant="secondary" onClick={() => void handleNewThread()}>
-                {language === "es" ? "Nuevo chat" : "New chat"}
+                {currentChatExperienceMode === "pro"
+                  ? language === "es"
+                    ? "Nuevo cliente"
+                    : "New customer"
+                  : language === "es"
+                    ? "Nuevo chat"
+                    : "New chat"}
               </Button>
             </div>
             <div className="max-h-[60vh] overflow-y-auto rounded-[24px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)]">
@@ -866,7 +1029,13 @@ export function ChatLayout() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" onClick={() => void handleNewThread()}>
-                {language === "es" ? "Nuevo chat" : "New chat"}
+                {currentChatExperienceMode === "pro"
+                  ? language === "es"
+                    ? "Nuevo cliente"
+                    : "New customer"
+                  : language === "es"
+                    ? "Nuevo chat"
+                    : "New chat"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setVehicleModalOpen(true)}>
                 {language === "es" ? "Vehiculo" : "Vehicle"}

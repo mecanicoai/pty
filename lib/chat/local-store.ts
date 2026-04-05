@@ -7,6 +7,7 @@ export interface LocalChatSession {
   title: string;
   language: AppLanguage;
   experienceMode: AppExperienceMode;
+  pendingProAction?: "triage_quote" | null;
   vehicle: VehicleContext | null;
   messages: UiMessage[];
   updatedAt: string;
@@ -23,9 +24,10 @@ export function createLocalSession(language: AppLanguage, experienceMode: AppExp
   const now = new Date().toISOString();
   return {
     id: createId(),
-    title: experienceMode === "pro" ? "Maestro Mecanico" : "Nuevo chat",
+    title: experienceMode === "pro" ? "Nuevo cliente" : "Nuevo chat",
     language,
     experienceMode,
+    pendingProAction: null,
     vehicle: null,
     messages: [],
     updatedAt: now,

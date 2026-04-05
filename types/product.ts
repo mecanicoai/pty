@@ -31,6 +31,8 @@ export interface WorkflowQuoteDraft {
   lineItems: Array<{
     label: string;
     amount: number;
+    detail?: string;
+    timing?: string;
   }>;
   total: number;
   notes: string[];
