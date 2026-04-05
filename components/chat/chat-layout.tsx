@@ -180,6 +180,20 @@ function buildProActionPrompt(language: AppLanguage) {
       ].join("\n");
 }
 
+interface TriageLeadDraft {
+  customerName: string;
+  vehicleLabel: string;
+  customerPhone: string;
+  customerMessage: string;
+}
+
+interface PendingImportedLead {
+  targetSessionId: string;
+  draft: TriageLeadDraft;
+  attachments: ChatAttachment[];
+  sourceApp?: string;
+}
+
 function getMissingTriageFields(messageText: string) {
   const fields = extractWorkflowContactFields(messageText);
   const missing: string[] = [];
@@ -199,6 +213,34 @@ function getMissingTriageFields(messageText: string) {
 
 function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, "");
+}
+
+function getMissingLeadFields(draft: TriageLeadDraft) {
+  const missing: string[] = [];
+
+  if (!draft.customerName.trim()) {
+    missing.push("Cliente");
+  }
+  if (!draft.vehicleLabel.trim()) {
+    missing.push("Vehiculo");
+  }
+  if (!draft.customerPhone.trim()) {
+    missing.push("Telefono");
+  }
+  if (!draft.customerMessage.trim()) {
+    missing.push("Mensaje");
+  }
+
+  return missing;
+}
+
+function buildLeadMessage(draft: TriageLeadDraft) {
+  return [
+    `Cliente: ${draft.customerName.trim()}`,
+    `Vehiculo: ${draft.vehicleLabel.trim()}`,
+    `Telefono: ${draft.customerPhone.trim()}`,
+    `Mensaje: ${draft.customerMessage.trim()}`
+  ].join("\n");
 }
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -259,13 +301,23 @@ export function ChatLayout() {
   const [workflowOutput, setWorkflowOutput] = useState<ProWorkflowOutput | null>(null);
   const [lastVehicleContext, setLastVehicleContextState] = useState<VehicleContext | null>(null);
   const [triageModalOpen, setTriageModalOpen] = useState(false);
-  const [triageDraft, setTriageDraft] = useState({
+  const [triageDraft, setTriageDraft] = useState<TriageLeadDraft>({
     customerName: "",
     vehicleLabel: "",
     customerPhone: "",
     customerMessage: ""
   });
   const [triageAttachments, setTriageAttachments] = useState<ChatAttachment[]>([]);
+  const [importLeadModalOpen, setImportLeadModalOpen] = useState(false);
+  const [importLeadDraft, setImportLeadDraft] = useState<TriageLeadDraft>({
+    customerName: "",
+    vehicleLabel: "",
+    customerPhone: "",
+    customerMessage: ""
+  });
+  const [importLeadAttachments, setImportLeadAttachments] = useState<ChatAttachment[]>([]);
+  const [importLeadSourceApp, setImportLeadSourceApp] = useState<string | undefined>(undefined);
+  const [pendingImportedLead, setPendingImportedLead] = useState<PendingImportedLead | null>(null);
   const [pendingSharedIntent, setPendingSharedIntent] = useState<SharedIntentPayload | null>(null);
 
   const currentChatExperienceMode: AppExperienceMode = selectedMode === "pro" ? "pro" : "diy";
@@ -448,31 +500,40 @@ export function ChatLayout() {
         normalizedPhone
           ? proSessions.find((session) => normalizePhone(session.customerPhone || "") === normalizedPhone)
           : null;
+      const matchedVehicleLabel =
+        matchedSession?.vehicleLabel ||
+        [matchedSession?.vehicle?.year, matchedSession?.vehicle?.make, matchedSession?.vehicle?.model].filter(Boolean).join(" ");
 
       if (selectedMode !== "pro") {
         setSelectedMode("pro");
         setSelectedModeState("pro");
       }
 
+      let targetSessionId = matchedSession?.id || "";
       if (matchedSession) {
+        targetSessionId = matchedSession.id;
         setActiveSessionId(matchedSession.id);
       } else {
         const fresh = createLocalSession(language, "pro");
         fresh.customerPhone = extracted.customerPhone || "";
         fresh.customerName = extracted.customerName || "";
         fresh.vehicleLabel = extracted.vehicleLabel || "";
+        targetSessionId = fresh.id;
         setSessions((prev) => [fresh, ...prev]);
         setActiveSessionId(fresh.id);
       }
 
-      setTriageDraft({
-        customerName: extracted.customerName || "",
-        vehicleLabel: extracted.vehicleLabel || "",
-        customerPhone: extracted.customerPhone || "",
-        customerMessage: detail.sharedText || ""
+      setPendingImportedLead({
+        targetSessionId,
+        draft: {
+          customerName: extracted.customerName || matchedSession?.customerName || "",
+          vehicleLabel: extracted.vehicleLabel || matchedVehicleLabel || "",
+          customerPhone: extracted.customerPhone || matchedSession?.customerPhone || "",
+          customerMessage: detail.sharedText || ""
+        },
+        attachments: detail.attachments || [],
+        sourceApp: detail.sourceApp
       });
-      setTriageAttachments(detail.attachments || []);
-      setTriageModalOpen(true);
     }
 
     window.addEventListener(nativeBridgeEvents.sharedIntent, handleSharedIntent);
@@ -491,16 +552,48 @@ export function ChatLayout() {
     window.dispatchEvent(new CustomEvent(nativeBridgeEvents.sharedIntent, { detail }));
   }, [businessProfile, pendingSharedIntent]);
 
-  function updateActiveSession(mutator: (session: LocalChatSession) => LocalChatSession) {
+  function updateSessionById(sessionId: string | null, mutator: (session: LocalChatSession) => LocalChatSession) {
+    if (!sessionId) {
+      return;
+    }
+
     setSessions((prev) =>
       prev.map((session) => {
-        if (session.id !== activeSessionId) {
+        if (session.id !== sessionId) {
           return session;
         }
         return mutator(session);
       })
     );
   }
+
+  function updateActiveSession(mutator: (session: LocalChatSession) => LocalChatSession) {
+    updateSessionById(activeSessionId, mutator);
+  }
+
+  useEffect(() => {
+    if (!pendingImportedLead || !businessProfile) {
+      return;
+    }
+
+    const targetSession = sessions.find((session) => session.id === pendingImportedLead.targetSessionId) ?? null;
+    if (!targetSession || activeSessionId !== pendingImportedLead.targetSessionId) {
+      return;
+    }
+
+    const missing = getMissingLeadFields(pendingImportedLead.draft);
+    if (missing.length) {
+      setImportLeadDraft(pendingImportedLead.draft);
+      setImportLeadAttachments(pendingImportedLead.attachments);
+      setImportLeadSourceApp(pendingImportedLead.sourceApp);
+      setImportLeadModalOpen(true);
+      setPendingImportedLead(null);
+      return;
+    }
+
+    setPendingImportedLead(null);
+    void submitLeadToWorkflow(pendingImportedLead.draft, pendingImportedLead.attachments);
+  }, [activeSessionId, businessProfile, pendingImportedLead, sessions]);
 
   function appendAssistantMessage(partial: Omit<UiMessage, "id" | "role" | "createdAt">) {
     const createdAt = new Date().toISOString();
@@ -590,6 +683,45 @@ export function ChatLayout() {
       token = await ensureInstallToken();
       return await runRequest(token);
     }
+  }
+
+  async function submitLeadToWorkflow(draft: TriageLeadDraft, attachments: ChatAttachment[]) {
+    if (!activeSession) {
+      return;
+    }
+
+    const nextDraft = {
+      customerName: draft.customerName.trim(),
+      vehicleLabel: draft.vehicleLabel.trim(),
+      customerPhone: draft.customerPhone.trim(),
+      customerMessage: draft.customerMessage.trim()
+    };
+
+    if (getMissingLeadFields(nextDraft).length) {
+      setError(language === "es" ? "Completa cliente, vehiculo, telefono y mensaje." : "Complete customer, vehicle, phone, and message.");
+      return;
+    }
+
+    updateActiveSession((session) => ({
+      ...session,
+      pendingProAction: "triage_quote",
+      customerName: nextDraft.customerName,
+      customerPhone: nextDraft.customerPhone,
+      vehicleLabel: nextDraft.vehicleLabel,
+      updatedAt: new Date().toISOString()
+    }));
+
+    setError(null);
+
+    await handleSend(
+      {
+        message: buildLeadMessage(nextDraft),
+        attachments
+      },
+      {
+        forceWorkflowMode: true
+      }
+    );
   }
 
   async function handleSend(
@@ -759,40 +891,18 @@ export function ChatLayout() {
   }
 
   async function handleSubmitTriageModal() {
-    if (!triageDraft.customerName.trim() || !triageDraft.vehicleLabel.trim() || !triageDraft.customerPhone.trim() || !triageDraft.customerMessage.trim()) {
-      setError(language === "es" ? "Completa cliente, vehiculo, telefono y mensaje." : "Complete customer, vehicle, phone, and message.");
-      return;
-    }
-
-    updateActiveSession((session) => ({
-      ...session,
-      pendingProAction: "triage_quote",
-      customerName: triageDraft.customerName.trim(),
-      customerPhone: triageDraft.customerPhone.trim(),
-      vehicleLabel: triageDraft.vehicleLabel.trim(),
-      updatedAt: new Date().toISOString()
-    }));
-
-    const formattedMessage = [
-      `Cliente: ${triageDraft.customerName.trim()}`,
-      `Vehiculo: ${triageDraft.vehicleLabel.trim()}`,
-      `Telefono: ${triageDraft.customerPhone.trim()}`,
-      `Mensaje: ${triageDraft.customerMessage.trim()}`
-    ].join("\n");
-
     setTriageModalOpen(false);
-    setError(null);
-
-      await handleSend(
-        {
-        message: formattedMessage,
-        attachments: triageAttachments
-        },
-        {
-          forceWorkflowMode: true
-        }
-      );
+    await submitLeadToWorkflow(triageDraft, triageAttachments);
     setTriageAttachments([]);
+  }
+
+  async function handleSubmitImportLead() {
+    await submitLeadToWorkflow(importLeadDraft, importLeadAttachments);
+    if (!getMissingLeadFields(importLeadDraft).length) {
+      setImportLeadModalOpen(false);
+      setImportLeadAttachments([]);
+      setImportLeadSourceApp(undefined);
+    }
   }
 
   function handleProActionInChat(action: "triage" | "quote" | "invoice" | "brief") {
@@ -1033,6 +1143,7 @@ export function ChatLayout() {
 
   const usageLabel = getPlanUsageLabel(language, plan, usage);
   const isProUnlocked = plan === "pro";
+  const importMissingFields = getMissingLeadFields(importLeadDraft);
   const proActions =
     selectedMode === "pro"
       ? [
@@ -1286,6 +1397,68 @@ export function ChatLayout() {
         onClose={() => setBusinessModalOpen(false)}
         onSave={handleSaveBusiness}
       />
+
+      <Modal
+        open={importLeadModalOpen}
+        title={language === "es" ? "Completa lo minimo para correr el triage" : "Complete the basics to run triage"}
+        onClose={() => setImportLeadModalOpen(false)}
+      >
+        <div className="space-y-3">
+          <p className="text-sm leading-6 text-[var(--wa-text-secondary)]">
+            {language === "es"
+              ? `Ya importamos el mensaje${importLeadSourceApp ? ` desde ${importLeadSourceApp}` : ""}. Solo completa lo que falta para abrir el caso y sacar la cotizacion.`
+              : `The message is already imported${importLeadSourceApp ? ` from ${importLeadSourceApp}` : ""}. Only fill the missing basics to open the case and run the quote.`}
+          </p>
+          {importMissingFields.includes("Cliente") ? (
+            <Input
+              placeholder={language === "es" ? "Cliente" : "Customer"}
+              value={importLeadDraft.customerName}
+              onChange={(event) => setImportLeadDraft((prev) => ({ ...prev, customerName: event.target.value }))}
+            />
+          ) : null}
+          {importMissingFields.includes("Vehiculo") ? (
+            <Input
+              placeholder={language === "es" ? "Vehiculo" : "Vehicle"}
+              value={importLeadDraft.vehicleLabel}
+              onChange={(event) => setImportLeadDraft((prev) => ({ ...prev, vehicleLabel: event.target.value }))}
+            />
+          ) : null}
+          {importMissingFields.includes("Telefono") ? (
+            <Input
+              placeholder={language === "es" ? "Telefono / WhatsApp" : "Phone / WhatsApp"}
+              value={importLeadDraft.customerPhone}
+              onChange={(event) => setImportLeadDraft((prev) => ({ ...prev, customerPhone: event.target.value }))}
+            />
+          ) : null}
+          {importMissingFields.includes("Mensaje") ? (
+            <Textarea
+              rows={4}
+              placeholder={language === "es" ? "Que reporto el cliente?" : "What did the customer report?"}
+              value={importLeadDraft.customerMessage}
+              onChange={(event) => setImportLeadDraft((prev) => ({ ...prev, customerMessage: event.target.value }))}
+            />
+          ) : (
+            <div className="rounded-[20px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)] px-4 py-3 text-sm leading-6 text-[var(--wa-text-secondary)]">
+              {importLeadDraft.customerMessage}
+            </div>
+          )}
+          {importLeadAttachments.length ? (
+            <p className="text-xs text-[var(--wa-text-secondary)]">
+              {language === "es"
+                ? `Adjuntos importados: ${importLeadAttachments.map((item) => item.name).join(", ")}`
+                : `Imported attachments: ${importLeadAttachments.map((item) => item.name).join(", ")}`}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button type="button" variant="secondary" onClick={() => setImportLeadModalOpen(false)}>
+              {language === "es" ? "Luego" : "Later"}
+            </Button>
+            <Button type="button" onClick={() => void handleSubmitImportLead()}>
+              {language === "es" ? "Correr triage" : "Run triage"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={triageModalOpen}
