@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { buildWhatsAppShareUrl, openPrintableDocument } from "@/lib/product/pro-workflows";
+import { buildDocumentShareText, buildWhatsAppShareUrl, openPrintableDocument } from "@/lib/product/pro-workflows";
 import type { BusinessProfile, ProDocumentDraft } from "@/types/product";
 
 interface Props {
@@ -23,12 +23,12 @@ export function DocumentWorkspace({ title, business, initialDraft, showAmount = 
   }, [initialDraft]);
 
   function copyDocument() {
-    const text = [title, business.business_name, `Cliente: ${draft.customerName || "Pendiente"}`, `Vehiculo: ${draft.vehicleLabel || "Pendiente"}`, `Resumen: ${draft.summary}`, draft.notes].join("\n\n");
+    const text = buildDocumentShareText(title, business, draft);
     void navigator.clipboard.writeText(text);
   }
 
   function shareDocument() {
-    const text = [title, business.business_name, `Cliente: ${draft.customerName || "Pendiente"}`, `Vehiculo: ${draft.vehicleLabel || "Pendiente"}`, `Resumen: ${draft.summary}`, draft.notes].join("\n\n");
+    const text = buildDocumentShareText(title, business, draft);
     window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
   }
 
@@ -49,12 +49,19 @@ export function DocumentWorkspace({ title, business, initialDraft, showAmount = 
           <div className="space-y-3">
             <Input placeholder="Cliente" value={draft.customerName} onChange={(event) => setDraft((prev) => ({ ...prev, customerName: event.target.value }))} />
             <Input placeholder="Vehiculo" value={draft.vehicleLabel} onChange={(event) => setDraft((prev) => ({ ...prev, vehicleLabel: event.target.value }))} />
+            <Input placeholder="Telefono" value={draft.customerPhone || ""} onChange={(event) => setDraft((prev) => ({ ...prev, customerPhone: event.target.value }))} />
             <Input placeholder="Resumen" value={draft.summary} onChange={(event) => setDraft((prev) => ({ ...prev, summary: event.target.value }))} />
             {showAmount ? (
               <Input
-                placeholder={`Monto en ${business.currency}`}
-                value={draft.amount || ""}
-                onChange={(event) => setDraft((prev) => ({ ...prev, amount: Number(event.target.value) || 0 }))}
+                placeholder={draft.amountLabel || `Monto en ${business.currency}`}
+                value={draft.amountLabel || (draft.amount || "")}
+                onChange={(event) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    amountLabel: event.target.value,
+                    amount: Number(event.target.value) || prev.amount
+                  }))
+                }
               />
             ) : null}
             <Textarea rows={8} placeholder="Notas" value={draft.notes} onChange={(event) => setDraft((prev) => ({ ...prev, notes: event.target.value }))} />
@@ -82,8 +89,9 @@ export function DocumentWorkspace({ title, business, initialDraft, showAmount = 
             <div className="mt-5 space-y-3 text-sm text-[var(--wa-text-primary)]">
               <p><strong>Cliente:</strong> {draft.customerName || "Pendiente"}</p>
               <p><strong>Vehiculo:</strong> {draft.vehicleLabel || "Pendiente"}</p>
+              {draft.customerPhone ? <p><strong>Telefono:</strong> {draft.customerPhone}</p> : null}
               <p><strong>Resumen:</strong> {draft.summary}</p>
-              {showAmount ? <p><strong>Total:</strong> {draft.amount.toFixed(2)} {business.currency}</p> : null}
+              {showAmount ? <p><strong>Total:</strong> {draft.amountLabel || `${draft.amount.toFixed(2)} ${business.currency}`}</p> : null}
               <pre className="whitespace-pre-wrap leading-6 text-[var(--wa-text-secondary)]">{draft.notes}</pre>
             </div>
           </div>

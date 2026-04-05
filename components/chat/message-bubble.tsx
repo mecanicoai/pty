@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { buildWhatsAppShareUrl, openPrintableDocument } from "@/lib/product/pro-workflows";
+import { buildDocumentShareText, buildWhatsAppShareUrl, openPrintableDocument } from "@/lib/product/pro-workflows";
 import type { UiMessage } from "@/components/chat/types";
 
 function formatTime(value: string) {
@@ -31,6 +31,15 @@ function Section({ title, items }: { title: string; items: string[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function QuoteLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-[12px]">
+      <p className="text-[var(--wa-text-secondary)]">{label}</p>
+      <p className="text-right text-[var(--wa-text-primary)]">{value}</p>
     </div>
   );
 }
@@ -71,9 +80,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
     }
 
     const { title, draft, business } = message.documentPreview;
-    const text = [title, business.business_name, `Cliente: ${draft.customerName || "Pendiente"}`, `Vehiculo: ${draft.vehicleLabel || "Pendiente"}`, `Resumen: ${draft.summary}`, draft.notes]
-      .filter(Boolean)
-      .join("\n\n");
+    const text = buildDocumentShareText(title, business, draft);
 
     void navigator.clipboard.writeText(text);
   }
@@ -84,9 +91,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
     }
 
     const { title, draft, business } = message.documentPreview;
-    const text = [title, business.business_name, `Cliente: ${draft.customerName || "Pendiente"}`, `Vehiculo: ${draft.vehicleLabel || "Pendiente"}`, `Resumen: ${draft.summary}`, draft.notes]
-      .filter(Boolean)
-      .join("\n\n");
+    const text = buildDocumentShareText(title, business, draft);
 
     window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
   }
@@ -102,6 +107,24 @@ export function MessageBubble({ message }: { message: UiMessage }) {
     ].join("\n");
 
     window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+  }
+
+  function handleShareReply() {
+    if (!message.workflowOutput) {
+      return;
+    }
+
+    const text = message.workflowOutput.suggestedReply;
+    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+  }
+
+  function handleCopyReply() {
+    if (!message.workflowOutput) {
+      return;
+    }
+
+    const text = [message.workflowOutput.suggestedReply, `Siguiente paso: ${message.workflowOutput.nextStepExplanation}`].join("\n\n");
+    void navigator.clipboard.writeText(text);
   }
 
   return (
@@ -134,7 +157,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--mech-orange)]">Taller</p>
               <div className="mt-2 space-y-2 text-[14px] text-[var(--wa-text-primary)]">
-                <p>
+                <p className="whitespace-pre-wrap">
                   <span className="font-semibold">Brief interno:</span> {message.workflowOutput.internalJobBrief}
                 </p>
                 <p>
@@ -143,40 +166,52 @@ export function MessageBubble({ message }: { message: UiMessage }) {
                 <p>
                   <span className="font-semibold">Siguiente diagnostico:</span> {message.workflowOutput.recommendedNextDiagnosticStep}
                 </p>
-                {message.workflowOutput.unansweredQuestions.length ? (
-                  <div>
-                    <p className="font-semibold">Preguntas pendientes:</p>
-                    <ul className="mt-1 space-y-1 text-[13px]">
-                      {message.workflowOutput.unansweredQuestions.map((item) => (
-                        <li key={item}>- {item}</li>
-                      ))}
-                    </ul>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={handleShareQuestions}
-                        className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
-                      >
-                        Compartir preguntas
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
               </div>
             </div>
+
+            {message.workflowOutput.unansweredQuestions.length ? (
+              <div className="rounded-[18px] bg-[var(--wa-bg-app)] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--mech-orange)]">Preguntas por confirmar</p>
+                <ul className="mt-2 space-y-1 text-[13px] text-[var(--wa-text-primary)]">
+                  {message.workflowOutput.unansweredQuestions.map((item) => (
+                    <li key={item}>- {item}</li>
+                  ))}
+                </ul>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleShareQuestions}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    Compartir preguntas
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--taller-green)]">Cliente</p>
               <div className="mt-2 space-y-2 text-[14px] text-[var(--wa-text-primary)]">
-                <p>
-                  <span className="font-semibold">Resumen:</span> {message.workflowOutput.clientProblemSummary}
-                </p>
-                <p>
-                  <span className="font-semibold">Respuesta sugerida:</span> {message.workflowOutput.suggestedReply}
-                </p>
+                <p><span className="font-semibold">Respuesta sugerida:</span> {message.workflowOutput.suggestedReply}</p>
                 <p>
                   <span className="font-semibold">Siguiente paso:</span> {message.workflowOutput.nextStepExplanation}
                 </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopyReply}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    Copiar respuesta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareReply}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    WhatsApp
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -186,22 +221,26 @@ export function MessageBubble({ message }: { message: UiMessage }) {
                 <div className="mt-2 grid gap-1 text-[12px] text-[var(--wa-text-secondary)]">
                   <p>Cliente: {message.documentPreview.draft.customerName || "Pendiente"}</p>
                   <p>Vehiculo: {message.documentPreview.draft.vehicleLabel || "Pendiente"}</p>
-                  <p>
-                    Total preliminar: {message.documentPreview.draft.amount.toFixed(2)} {message.documentPreview.business.currency}
-                  </p>
+                  {message.documentPreview.draft.customerPhone ? <p>Telefono: {message.documentPreview.draft.customerPhone}</p> : null}
+                  <p>Total preliminar: {message.documentPreview.draft.amountLabel || "Pendiente por confirmar"}</p>
                 </div>
+                {message.workflowOutput.quoteDraft?.intro ? (
+                  <p className="mt-3 text-[13px] leading-5 text-[var(--wa-text-primary)]">{message.workflowOutput.quoteDraft.intro}</p>
+                ) : null}
                 {message.workflowOutput.quoteDraft?.lineItems?.length ? (
                   <div className="mt-3 space-y-2 text-[13px] text-[var(--wa-text-primary)]">
                     {message.workflowOutput.quoteDraft.lineItems.map((item) => (
-                      <div key={`${item.label}-${item.amount}`} className="rounded-[14px] border border-[var(--wa-divider)] bg-white/60 p-2 dark:bg-white/5">
-                        <div className="flex justify-between gap-3">
+                      <div key={`${item.label}-${item.totalRange}`} className="rounded-[14px] border border-[var(--wa-divider)] bg-white/60 p-3 dark:bg-white/5">
+                        <div className="flex items-start justify-between gap-3">
                           <p className="font-semibold">{item.label}</p>
-                          <p className="shrink-0">
-                            {item.amount.toFixed(2)} {message.documentPreview?.business.currency}
-                          </p>
+                          <p className="shrink-0 text-right text-[12px] font-semibold text-[var(--taller-green)]">{item.totalRange}</p>
                         </div>
-                        {item.detail ? <p className="mt-1 text-[12px] text-[var(--wa-text-secondary)]">{item.detail}</p> : null}
-                        {item.timing ? <p className="mt-1 text-[12px] text-[var(--wa-text-secondary)]">Tiempo: {item.timing}</p> : null}
+                        <p className="mt-1 text-[12px] leading-5 text-[var(--wa-text-secondary)]">{item.why}</p>
+                        <div className="mt-2 space-y-1">
+                          <QuoteLine label="Tiempo tipico" value={item.laborHours} />
+                          <QuoteLine label="Mano de obra" value={item.laborCostRange} />
+                          <QuoteLine label="Refacciones" value={item.partsCostRange} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -210,6 +249,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
                   {message.documentPreview.draft.notes
                     .split("\n")
                     .filter(Boolean)
+                    .slice(0, 8)
                     .map((line) => (
                       <p key={line}>{line}</p>
                     ))}

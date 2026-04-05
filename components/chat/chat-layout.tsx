@@ -35,6 +35,7 @@ import {
 } from "@/lib/product/local-store";
 import {
   buildProWorkflowOutput,
+  extractWorkflowContactFields,
   createBriefDocumentDraft,
   createInvoiceDocumentDraft,
   createQuoteDocumentDraft
@@ -132,7 +133,20 @@ function deriveTitle(message: string, vehicle: VehicleContext | null, language: 
 function buildHistory(messages: UiMessage[]): ChatHistoryItem[] {
   return messages.slice(-12).map((message) => ({
     role: message.role,
-    text: message.diagnostic?.summary || message.text,
+    text: message.workflowOutput
+      ? [
+          `Resumen cliente: ${message.workflowOutput.clientProblemSummary}`,
+          `Brief interno: ${message.workflowOutput.internalJobBrief}`,
+          message.workflowOutput.unansweredQuestions.length
+            ? `Preguntas pendientes: ${message.workflowOutput.unansweredQuestions.join(" | ")}`
+            : "",
+          message.workflowOutput.quoteDraft
+            ? `Cotizacion preliminar: ${message.workflowOutput.quoteDraft.totalLabel}. ${message.workflowOutput.quoteDraft.intro}`
+            : ""
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : message.diagnostic?.summary || message.text,
     createdAt: message.createdAt,
     usedWebSearch: message.usedWebSearch
   }));
@@ -147,8 +161,37 @@ function normalizeMessageForDisplay(language: AppLanguage, payloadMessage: strin
 
 function buildProActionPrompt(language: AppLanguage) {
   return language === "es"
-    ? "Pega aqui el texto del cliente o baja lo importante de su nota de voz. Yo te devuelvo memo interno, preguntas pendientes y cotizacion preliminar en este mismo chat."
-    : "Share the customer text here or summarize the voice note. Once you send it, I will turn it into triage, suggested reply, next step, and a preliminary quote in this chat.";
+    ? [
+        "Para arrancar, mandame esto en el chat:",
+        "Cliente: Nombre del cliente",
+        "Vehiculo: Ano marca modelo",
+        "Telefono: WhatsApp o celular",
+        "Mensaje: Texto del cliente o resumen de su nota de voz"
+      ].join("\n")
+    : [
+        "To start, send this in chat:",
+        "Customer: Customer name",
+        "Vehicle: Year make model",
+        "Phone: WhatsApp or cell",
+        "Message: Customer text or voice note summary"
+      ].join("\n");
+}
+
+function getMissingTriageFields(messageText: string) {
+  const fields = extractWorkflowContactFields(messageText);
+  const missing: string[] = [];
+
+  if (!fields.customerName) {
+    missing.push("Cliente");
+  }
+  if (!fields.vehicleLabel) {
+    missing.push("Vehiculo");
+  }
+  if (!fields.customerPhone) {
+    missing.push("Telefono");
+  }
+
+  return { fields, missing };
 }
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -484,6 +527,8 @@ export function ChatLayout() {
 
     const existingMessages = activeSession.messages;
     const latestWorkflowBefore = getLatestWorkflowFromSession(activeSession);
+    const isCollectingTriage = currentChatExperienceMode === "pro" && activeSession.pendingProAction === "triage_collect";
+    const triageCheck = isCollectingTriage ? getMissingTriageFields(messageText) : null;
     updateActiveSession((session) => ({
       ...session,
       language,
@@ -496,7 +541,33 @@ export function ChatLayout() {
     setError(null);
 
     try {
-      const isWorkflowMode = currentChatExperienceMode === "pro" && !!businessProfile && (activeSession.pendingProAction === "triage_quote" || !!latestWorkflowBefore);
+      if (isCollectingTriage && triageCheck && triageCheck.missing.length) {
+        const reminder =
+          language === "es"
+            ? `Antes de correr el triage me faltan: ${triageCheck.missing.join(", ")}. Mandamelo asi:\nCliente: ...\nVehiculo: ...\nTelefono: ...\nMensaje: ...`
+            : `Before I run triage I still need: ${triageCheck.missing.join(", ")}. Send it like this:\nCustomer: ...\nVehicle: ...\nPhone: ...\nMessage: ...`;
+
+        updateActiveSession((session) => ({
+          ...session,
+          messages: [
+            ...session.messages,
+            {
+              id: `assistant-${Date.now()}`,
+              role: "assistant",
+              text: reminder,
+              createdAt: new Date().toISOString()
+            }
+          ],
+          pendingProAction: "triage_collect",
+          updatedAt: new Date().toISOString()
+        }));
+        return;
+      }
+
+      const isWorkflowMode =
+        currentChatExperienceMode === "pro" &&
+        !!businessProfile &&
+        ((activeSession.pendingProAction === "triage_quote" || activeSession.pendingProAction === "triage_collect") || !!latestWorkflowBefore);
       const response = await sendChatRequest({
         message: isWorkflowMode
           ? [
@@ -524,9 +595,8 @@ export function ChatLayout() {
             customerMessage: messageText,
             customerName: latestWorkflowBefore?.customerName,
             vehicleLabel: latestWorkflowBefore?.vehicleLabel,
-            business: businessProfile,
+            customerPhone: latestWorkflowBefore?.customerPhone,
             diagnostic: response,
-            vehicle: activeSession.vehicle,
             language
           })
         : null;
@@ -540,12 +610,12 @@ export function ChatLayout() {
                   ? "Listo. Ya actualice el memo interno y la cotizacion preliminar con la nueva info."
                   : "Listo. Primero te dejo el memo interno y abajo la cotizacion preliminar para el cliente."
                 : "First I left the internal shop memo, then the preliminary customer quote in this chat.",
-            workflowOutput: nextWorkflow,
-            documentPreview: {
-              title: "Cotizacion",
-              draft: createQuoteDocumentDraft(businessProfile, nextWorkflow),
-              business: businessProfile
-            },
+              workflowOutput: nextWorkflow,
+              documentPreview: {
+                title: "Cotizacion",
+                draft: createQuoteDocumentDraft(businessProfile, nextWorkflow, activeSession.vehicle),
+                business: businessProfile
+              },
             usedWebSearch: response.used_web_search,
             createdAt: assistantCreatedAt
           }
@@ -558,14 +628,14 @@ export function ChatLayout() {
             createdAt: assistantCreatedAt
           };
 
-      updateActiveSession((session) => ({
-        ...session,
-        language,
-        title: deriveTitle(messageText, session.vehicle, language, session.experienceMode),
-        messages: [...session.messages, assistantMessage],
-        pendingProAction: isWorkflowMode ? "triage_quote" : session.pendingProAction ?? null,
-        updatedAt: assistantMessage.createdAt
-      }));
+        updateActiveSession((session) => ({
+          ...session,
+          language,
+          title: deriveTitle(messageText, session.vehicle, language, session.experienceMode),
+          messages: [...session.messages, assistantMessage],
+          pendingProAction: isWorkflowMode ? "triage_quote" : session.pendingProAction ?? null,
+          updatedAt: assistantMessage.createdAt
+        }));
 
       if (nextWorkflow) {
         setWorkflowOutput(nextWorkflow);
@@ -614,7 +684,7 @@ export function ChatLayout() {
     if (action === "triage") {
       updateActiveSession((session) => ({
         ...session,
-        pendingProAction: "triage_quote",
+        pendingProAction: "triage_collect",
         updatedAt: new Date().toISOString()
       }));
       appendAssistantMessage({
@@ -639,7 +709,7 @@ export function ChatLayout() {
         text: language === "es" ? "Te dejo la cotizacion lista en este chat." : "Here is the quote inside this chat.",
         documentPreview: {
           title: "Cotizacion",
-          draft: createQuoteDocumentDraft(businessProfile, latestWorkflow),
+          draft: createQuoteDocumentDraft(businessProfile, latestWorkflow, activeSession.vehicle),
           business: businessProfile
         }
       });
@@ -651,7 +721,7 @@ export function ChatLayout() {
         text: language === "es" ? "Te dejo la factura lista en este chat." : "Here is the invoice inside this chat.",
         documentPreview: {
           title: "Factura",
-          draft: createInvoiceDocumentDraft(businessProfile, latestWorkflow),
+          draft: createInvoiceDocumentDraft(businessProfile, latestWorkflow, activeSession.vehicle),
           business: businessProfile
         }
       });
@@ -740,9 +810,8 @@ export function ChatLayout() {
         customerMessage: input.customerMessage,
         customerName: input.customerName,
         vehicleLabel: input.vehicleLabel,
-        business: businessProfile,
+        customerPhone: undefined,
         diagnostic: response,
-        vehicle: lastVehicleContext,
         language
       });
 
@@ -948,7 +1017,7 @@ export function ChatLayout() {
         <DocumentWorkspace
           title="Cotizacion"
           business={businessProfile}
-          initialDraft={createQuoteDocumentDraft(businessProfile, workflowOutput)}
+          initialDraft={createQuoteDocumentDraft(businessProfile, workflowOutput, activeSession?.vehicle ?? lastVehicleContext)}
           onBack={() => setProView("chat")}
         />
       ) : null}
@@ -957,7 +1026,7 @@ export function ChatLayout() {
         <DocumentWorkspace
           title="Factura"
           business={businessProfile}
-          initialDraft={createInvoiceDocumentDraft(businessProfile, workflowOutput)}
+          initialDraft={createInvoiceDocumentDraft(businessProfile, workflowOutput, activeSession?.vehicle ?? lastVehicleContext)}
           onBack={() => setProView("chat")}
         />
       ) : null}

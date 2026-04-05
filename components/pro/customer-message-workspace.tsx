@@ -41,9 +41,11 @@ export function CustomerMessageWorkspace({ business, output, loading, onBack, on
       draft: {
         customerName: output.customerName || customerName,
         vehicleLabel: output.vehicleLabel || vehicleLabel,
+        customerPhone: output.customerPhone || "",
         summary: output.clientProblemSummary,
         notes: output.quoteDraft.notes.join("\n"),
-        amount: output.quoteDraft.total
+        amount: 0,
+        amountLabel: output.quoteDraft.totalLabel
       }
     });
   }
@@ -120,14 +122,20 @@ export function CustomerMessageWorkspace({ business, output, loading, onBack, on
                   {output.quoteDraft ? (
                     <div className="mt-2 rounded-[18px] bg-[var(--wa-bg-app)] p-3 text-sm text-[var(--wa-text-secondary)]">
                       <p className="font-semibold text-[var(--wa-text-primary)]">{output.quoteDraft.title}</p>
+                      <p className="mt-1">{output.quoteDraft.intro}</p>
                       <div className="mt-2 space-y-1">
                         {output.quoteDraft.lineItems.map((item) => (
-                          <p key={item.label} className="flex justify-between gap-3">
-                            <span>{item.label}</span>
-                            <span>{item.amount.toFixed(2)} {business.currency}</span>
-                          </p>
+                          <div key={item.label} className="rounded-[14px] border border-[var(--wa-divider)] bg-white/50 p-2">
+                            <p className="font-medium text-[var(--wa-text-primary)]">{item.label}</p>
+                            <p className="mt-1 text-[12px]">{item.why}</p>
+                            <p className="mt-1 text-[12px]">Tiempo: {item.laborHours}</p>
+                            <p className="mt-1 text-[12px]">Mano de obra: {item.laborCostRange}</p>
+                            <p className="mt-1 text-[12px]">Refacciones: {item.partsCostRange}</p>
+                            <p className="mt-1 text-[12px] font-semibold text-[var(--taller-green)]">Rango: {item.totalRange}</p>
+                          </div>
                         ))}
                       </div>
+                      <p className="mt-2 font-semibold text-[var(--wa-text-primary)]">Total: {output.quoteDraft.totalLabel}</p>
                     </div>
                   ) : (
                     <p className="mt-1 text-sm text-[var(--wa-text-secondary)]">Todavia no hay suficiente base para una cotizacion preliminar.</p>

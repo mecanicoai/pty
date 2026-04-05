@@ -28,13 +28,16 @@ export interface CustomerMessageDraft {
 
 export interface WorkflowQuoteDraft {
   title: string;
+  intro: string;
+  totalLabel: string;
   lineItems: Array<{
     label: string;
-    amount: number;
-    detail?: string;
-    timing?: string;
+    why: string;
+    laborHours: string;
+    laborCostRange: string;
+    partsCostRange: string;
+    totalRange: string;
   }>;
-  total: number;
   notes: string[];
 }
 
@@ -42,6 +45,7 @@ export interface ProWorkflowOutput {
   sourceMessage: string;
   customerName?: string;
   vehicleLabel?: string;
+  customerPhone?: string;
   clientProblemSummary: string;
   suggestedReply: string;
   nextStepExplanation: string;
@@ -55,11 +59,35 @@ export interface ProWorkflowOutput {
 }
 
 export interface ProDocumentDraft {
+  documentType?: "quote" | "invoice" | "brief";
   customerName: string;
   vehicleLabel: string;
+  customerPhone?: string;
   summary: string;
   notes: string;
   amount: number;
+  amountLabel?: string;
+  quoteDate?: string;
+  quoteNumber?: string;
+  customerComplaint?: string;
+  recommendedService?: string;
+  serviceDescription?: string;
+  diagnosticFeeLabel?: string;
+  laborTotalLabel?: string;
+  partsTotalLabel?: string;
+  otherTotalLabel?: string;
+  subtotalLabel?: string;
+  taxTotalLabel?: string;
+  estimatedTime?: string;
+  availabilityEstimate?: string;
+  depositAmountLabel?: string;
+  paymentMethod?: string;
+  importantNotes?: string[];
+  vehicleYear?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleEngine?: string;
+  vehicleIdentifier?: string;
 }
 
 export interface ProductStateSnapshot {

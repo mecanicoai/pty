@@ -7,7 +7,7 @@ export interface LocalChatSession {
   title: string;
   language: AppLanguage;
   experienceMode: AppExperienceMode;
-  pendingProAction?: "triage_quote" | null;
+  pendingProAction?: "triage_collect" | "triage_quote" | null;
   vehicle: VehicleContext | null;
   messages: UiMessage[];
   updatedAt: string;

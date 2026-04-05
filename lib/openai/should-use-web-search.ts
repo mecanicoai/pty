@@ -5,7 +5,7 @@ const WEB_SEARCH_KEYWORDS = [
   /\b(recall|recalls)\b/i,
   /\b(tsb|service bulletin|bulletin|boletin)\b/i,
   /\b(availability|disponibilidad)\b/i,
-  /\b(price|precio|cost|costo|labor rate|mano de obra)\b/i,
+  /\b(price|precio|cost|costo|estimate|estimado|estimacion|cotizacion|presupuesto|labor rate|mano de obra|refacciones|parts)\b/i,
   /\b(regulation|regulations|reglamento|normativa|safety notice)\b/i,
   /\b(field report|foro|forum|reportes recientes)\b/i,
   /\b(updated?|actualizado|actual)\b/i
@@ -31,7 +31,7 @@ export function shouldUseWebSearch(message: string, mode: AppMode, vehicleContex
     return false;
   }
 
-  if (mode === "shop" && /\b(precio|cost|quote|cotizacion|availability)\b/i.test(normalized)) {
+  if (mode === "shop" && /\b(precio|cost|quote|cotizacion|presupuesto|estimate|estimacion|availability|refacciones|parts)\b/i.test(normalized)) {
     return true;
   }
 
