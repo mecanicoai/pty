@@ -85,7 +85,12 @@ class MecanicoAndroidBridge(
     fun sendSharedIntentToWeb(payloadJson: String) {
         enqueueJavascript(
             """
-            window.MecanicoWebApp?.receiveSharedIntent?.($payloadJson)
+            (function() {
+              window.__mecanicoPendingSharedIntent = $payloadJson;
+              if (window.MecanicoWebApp?.receiveSharedIntent) {
+                window.MecanicoWebApp.receiveSharedIntent($payloadJson);
+              }
+            })();
             """.trimIndent()
         )
     }

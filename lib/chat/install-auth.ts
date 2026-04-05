@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
 
 declare global {
   interface Window {
+    __mecanicoPendingSharedIntent?: unknown;
     MecanicoWebApp?: {
       getInstallId?: () => string;
       getPendingIntegrityBootstrap?: () => InstallBootstrapResponse["integrity"] | null;

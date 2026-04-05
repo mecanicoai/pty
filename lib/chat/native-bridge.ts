@@ -17,6 +17,7 @@ export interface SharedIntentPayload {
 
 declare global {
   interface Window {
+    __mecanicoPendingSharedIntent?: unknown;
     MecanicoAndroid?: {
       startVoiceInput?: (language: AppLanguage) => void;
       stopVoiceInput?: () => void;
@@ -127,9 +128,18 @@ export function registerNativeMediaBridge() {
       emit(EVENTS.voiceState, { recording: false });
     },
     receiveSharedIntent: (payload: string | Record<string, unknown>) => {
-      emit(EVENTS.sharedIntent, normalizeSharedIntent(payload));
+      const normalized = normalizeSharedIntent(payload);
+      window.__mecanicoPendingSharedIntent = normalized;
+      emit(EVENTS.sharedIntent, normalized);
+      window.__mecanicoPendingSharedIntent = undefined;
     }
   };
+
+  if (window.__mecanicoPendingSharedIntent) {
+    const normalized = normalizeSharedIntent(window.__mecanicoPendingSharedIntent);
+    emit(EVENTS.sharedIntent, normalized);
+    window.__mecanicoPendingSharedIntent = undefined;
+  }
 }
 
 export function hasNativeVoiceBridge() {
