@@ -13,21 +13,21 @@ interface Props {
 function getPlanBullets(language: AppLanguage, plan: SubscriptionPlan) {
   if (language === "en") {
     if (plan === "free") {
-      return ["5 total questions", "Text chat only", "Good for trying the app"];
+      return ["5 total questions", "Basic symptom guidance", "Best for trying DIY mode"];
     }
     if (plan === "basic") {
-      return ["10 questions per day", "Text chat only", "Best for light daily use"];
+      return ["10 questions per day", "Deeper DIY troubleshooting", "Built for car owners and hobbyists"];
     }
-    return ["Unlimited use", "Voice input", "Photo and document upload"];
+    return ["Unlimited Master Mechanic chat", "Voice, photo, and file upload", "Quotes, invoices, and internal briefs"];
   }
 
   if (plan === "free") {
-    return ["5 preguntas totales", "Solo texto", "Ideal para probar la app"];
+    return ["5 preguntas totales", "Guia basica de sintomas", "Ideal para probar DIY"];
   }
   if (plan === "basic") {
-    return ["10 preguntas por dia", "Solo texto", "Para uso ligero todos los dias"];
+    return ["10 preguntas por dia", "Troubleshooting DIY mas profundo", "Pensado para dueños y hobbyistas"];
   }
-  return ["Uso ilimitado", "Entrada por voz", "Subida de fotos y archivos"];
+  return ["Maestro Mecanico ilimitado", "Voz, fotos y archivos", "Cotizaciones, facturas y briefs internos"];
 }
 
 export function PricingSheet({ open, language, currentPlan, usage, onClose }: Props) {
@@ -38,8 +38,8 @@ export function PricingSheet({ open, language, currentPlan, usage, onClose }: Pr
   const copy =
     language === "es"
       ? {
-          title: "Planes de Mecanico AI",
-          subtitle: "El cobro y las compras se conectaran desde Google Play en la siguiente etapa.",
+          title: "Planes de trabajo",
+          subtitle: "DIY ayuda a entender mejor el carro. Para los Pros ayuda a convertir mensajes en trabajo aprobado.",
           current: "Plan actual",
           usage:
             usage.plan === "free"
@@ -51,8 +51,8 @@ export function PricingSheet({ open, language, currentPlan, usage, onClose }: Pr
           close: "Cerrar"
         }
       : {
-          title: "Mecanico AI plans",
-          subtitle: "Purchases will be connected through Google Play in the next step.",
+          title: "Work plans",
+          subtitle: "DIY helps users understand the car problem. Pro helps mechanics turn customer messages into approved work.",
           current: "Current plan",
           usage:
             usage.plan === "free"

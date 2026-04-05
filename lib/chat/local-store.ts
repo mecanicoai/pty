@@ -1,10 +1,12 @@
 import type { UiMessage } from "@/components/chat/types";
+import type { AppExperienceMode } from "@/types/product";
 import type { AppLanguage, VehicleContext } from "@/types/chat";
 
 export interface LocalChatSession {
   id: string;
   title: string;
   language: AppLanguage;
+  experienceMode: AppExperienceMode;
   vehicle: VehicleContext | null;
   messages: UiMessage[];
   updatedAt: string;
@@ -17,12 +19,13 @@ function createId() {
   return `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function createLocalSession(language: AppLanguage): LocalChatSession {
+export function createLocalSession(language: AppLanguage, experienceMode: AppExperienceMode = "diy"): LocalChatSession {
   const now = new Date().toISOString();
   return {
     id: createId(),
-    title: "Nuevo chat",
+    title: experienceMode === "pro" ? "Maestro Mecanico" : "Nuevo chat",
     language,
+    experienceMode,
     vehicle: null,
     messages: [],
     updatedAt: now,
@@ -42,7 +45,12 @@ export function loadLocalSessions(): LocalChatSession[] {
     }
 
     const parsed = JSON.parse(raw) as LocalChatSession[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.map((session) => ({
+          ...session,
+          experienceMode: session.experienceMode === "pro" ? "pro" : "diy"
+        }))
+      : [];
   } catch {
     return [];
   }

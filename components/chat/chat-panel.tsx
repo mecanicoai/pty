@@ -50,23 +50,23 @@ export function ChatPanel({
   const labels =
     language === "es"
       ? {
-          title: title || "Mecánico AI",
-          statusShort: "En línea",
-          statusLong: "Tu compañero en el taller",
-          planBadge: plan === "free" ? "Gratis" : plan === "basic" ? "Básico" : "Pro",
+          title: title || "Mecanico AI",
+          statusShort: "En linea",
+          statusLong: "Tu companero en el taller",
+          planBadge: plan === "free" ? "DIY gratis" : plan === "basic" ? "DIY Plus" : "Pro",
           history: "Abrir historial",
-          vehicle: "Datos del vehículo",
+          vehicle: "Datos del vehiculo",
           newChat: "Nuevo chat",
           language: "Cambiar idioma",
           darkMode: isDarkMode ? "Activar tema claro" : "Activar tema oscuro",
           refresh: "Refrescar chat",
-          menu: "Abrir menú"
+          menu: "Abrir menu"
         }
       : {
           title: title || "Mecanico AI",
           statusShort: "Online",
           statusLong: "Your shop companion",
-          planBadge: plan === "free" ? "Free" : plan === "basic" ? "Basic" : "Pro",
+          planBadge: plan === "free" ? "DIY Free" : plan === "basic" ? "DIY Plus" : "Pro",
           history: "Open history",
           vehicle: "Vehicle details",
           newChat: "New chat",

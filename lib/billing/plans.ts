@@ -29,7 +29,7 @@ export interface PlanDefinition {
 export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanDefinition> = {
   free: {
     id: "free",
-    name: "Gratis",
+    name: "DIY Gratis",
     priceLabel: "$0",
     features: {
       voice: false,
@@ -41,7 +41,7 @@ export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanDefinition> = {
   },
   basic: {
     id: "basic",
-    name: "Basico",
+    name: "DIY Plus",
     priceLabel: "$5/mes",
     features: {
       voice: false,
@@ -53,7 +53,7 @@ export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanDefinition> = {
   },
   pro: {
     id: "pro",
-    name: "Pro",
+    name: "Para los Pros",
     priceLabel: "$25/mes",
     features: {
       voice: true,
