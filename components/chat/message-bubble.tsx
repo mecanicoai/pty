@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { openExternalUrl } from "@/lib/chat/native-bridge";
 import { buildDocumentShareText, buildWhatsAppShareUrl, openPrintableDocument } from "@/lib/product/pro-workflows";
 import type { MessageActionEvent, UiMessage } from "@/components/chat/types";
 
@@ -125,7 +126,7 @@ export function MessageBubble({
       return;
     }
 
-    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    openExternalUrl(buildWhatsAppShareUrl(text));
     onAction?.(message, {
       kind: message.documentPreview
         ? message.documentPreview.draft.documentType === "invoice"
@@ -163,7 +164,7 @@ export function MessageBubble({
     const { title, draft, business } = message.documentPreview;
     const text = buildDocumentShareText(title, business, draft);
 
-    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    openExternalUrl(buildWhatsAppShareUrl(text));
     onAction?.(message, {
       kind: draft.documentType === "invoice" ? "invoice" : draft.documentType === "brief" ? "brief" : "quote",
       channel: "whatsapp"
@@ -180,7 +181,7 @@ export function MessageBubble({
       ...message.workflowOutput.unansweredQuestions.map((item, index) => `${index + 1}. ${item}`)
     ].join("\n");
 
-    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    openExternalUrl(buildWhatsAppShareUrl(text));
     onAction?.(message, { kind: "questions", channel: "whatsapp" });
   }
 
@@ -190,7 +191,7 @@ export function MessageBubble({
     }
 
     const text = message.workflowOutput.suggestedReply;
-    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    openExternalUrl(buildWhatsAppShareUrl(text));
     onAction?.(message, { kind: "reply", channel: "whatsapp" });
   }
 
@@ -220,7 +221,7 @@ export function MessageBubble({
           'Si quieres que avancemos, responde "Autorizo" o mandame la info que falte.'
         ].join("\n");
 
-    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    openExternalUrl(buildWhatsAppShareUrl(text));
     onAction?.(message, { kind: "reminder", channel: "whatsapp" });
   }
 

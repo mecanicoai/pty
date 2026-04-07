@@ -25,7 +25,7 @@ import {
   storeInstallToken,
   storeUsageSnapshot
 } from "@/lib/chat/install-auth";
-import { nativeBridgeEvents, registerNativeMediaBridge, type SharedIntentPayload } from "@/lib/chat/native-bridge";
+import { nativeBridgeEvents, openExternalUrl, registerNativeMediaBridge, type SharedIntentPayload } from "@/lib/chat/native-bridge";
 import { createDefaultProCase, createLocalSession, loadLocalSessions, saveLocalSessions, type LocalChatSession } from "@/lib/chat/local-store";
 import {
   getBusinessProfile,
@@ -1842,7 +1842,7 @@ export function ChatLayout() {
     }
 
     const latestWorkflow = getLatestWorkflowFromSession(activeSession) ?? workflowOutput;
-    window.open(buildWhatsAppShareUrl(buildCustomerReminderText(activeSession, latestWorkflow)), "_blank", "noopener,noreferrer");
+    openExternalUrl(buildWhatsAppShareUrl(buildCustomerReminderText(activeSession, latestWorkflow)));
     handleMessageAction(
       {
         id: "thread-reminder",

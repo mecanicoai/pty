@@ -1,5 +1,7 @@
 package com.mecanico.app.bridge
 
+import android.content.Intent
+import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
@@ -40,6 +42,18 @@ class MecanicoAndroidBridge(
                 multiple = multiple,
                 maxFiles = maxFiles
             )
+        }
+    }
+
+    @JavascriptInterface
+    fun openExternal(url: String) {
+        activity.runOnUiThread {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                activity.startActivity(intent)
+            } catch (error: Exception) {
+                sendBridgeError(error.message ?: "No se pudo abrir el enlace externo.")
+            }
         }
     }
 

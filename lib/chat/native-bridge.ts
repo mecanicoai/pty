@@ -22,6 +22,7 @@ declare global {
       startVoiceInput?: (language: AppLanguage) => void;
       stopVoiceInput?: () => void;
       pickAttachments?: (accept: string, multiple: boolean, maxFiles: number) => void;
+      openExternal?: (url: string) => void;
     };
   }
 }
@@ -160,6 +161,23 @@ export function stopNativeVoiceInput() {
 
 export function requestNativeAttachments(input: { accept: string; multiple: boolean; maxFiles: number }) {
   window.MecanicoAndroid?.pickAttachments?.(input.accept, input.multiple, input.maxFiles);
+}
+
+export function canOpenExternal() {
+  return typeof window !== "undefined" && typeof window.MecanicoAndroid?.openExternal === "function";
+}
+
+export function openExternalUrl(url: string) {
+  if (typeof window === "undefined" || !url) {
+    return;
+  }
+
+  if (typeof window.MecanicoAndroid?.openExternal === "function") {
+    window.MecanicoAndroid.openExternal(url);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export const nativeBridgeEvents = EVENTS;

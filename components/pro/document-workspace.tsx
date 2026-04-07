@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { openExternalUrl } from "@/lib/chat/native-bridge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { buildDocumentShareText, buildWhatsAppShareUrl, openPrintableDocument } from "@/lib/product/pro-workflows";
@@ -29,7 +30,7 @@ export function DocumentWorkspace({ title, business, initialDraft, showAmount = 
 
   function shareDocument() {
     const text = buildDocumentShareText(title, business, draft);
-    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    openExternalUrl(buildWhatsAppShareUrl(text));
   }
 
   return (

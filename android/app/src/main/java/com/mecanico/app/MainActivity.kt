@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
+import android.webkit.WebResourceRequest
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -108,6 +109,31 @@ class MainActivity : ComponentActivity() {
 
         webView.addJavascriptInterface(bridge, "MecanicoAndroid")
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString().orEmpty()
+                if (url.isBlank()) {
+                    return false
+                }
+
+                val scheme = request?.url?.scheme?.lowercase().orEmpty()
+                val host = request?.url?.host?.lowercase().orEmpty()
+                val shouldOpenExternally =
+                    scheme !in setOf("http", "https") ||
+                        host == "wa.me" ||
+                        host.endsWith("whatsapp.com")
+
+                if (!shouldOpenExternally) {
+                    return false
+                }
+
+                return try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
+
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 bridge.onPageReset()
             }
