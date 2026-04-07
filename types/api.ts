@@ -17,6 +17,7 @@ export interface SessionSummary {
   missingFields?: string[];
   lastSentLabel?: string;
   approvedAt?: string;
+  paidAt?: string;
 }
 
 export interface ChatHistoryItem {

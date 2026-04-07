@@ -44,6 +44,19 @@ function QuoteLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function WhatsAppLabel({ text = "WhatsApp" }: { text?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#25D366]">
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-2.5 w-2.5 fill-white">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.198.297-.768.966-.94 1.164-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.787-1.48-1.76-1.653-2.057-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.496.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.71.307 1.263.49 1.694.628.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.29.173-1.413-.074-.124-.272-.198-.57-.347z" />
+        </svg>
+      </span>
+      <span>{text}</span>
+    </span>
+  );
+}
+
 export function MessageBubble({
   message,
   onAction
@@ -54,22 +67,48 @@ export function MessageBubble({
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
 
+  function buildShareText() {
+    if (message.workflowOutput) {
+      return [
+        "Taller",
+        `Brief interno: ${message.workflowOutput.internalJobBrief}`,
+        `Categoria probable: ${message.workflowOutput.likelyIssueCategory}`,
+        `Siguiente diagnostico: ${message.workflowOutput.recommendedNextDiagnosticStep}`,
+        message.workflowOutput.unansweredQuestions.length
+          ? `Preguntas: ${message.workflowOutput.unansweredQuestions.join(" | ")}`
+          : "",
+        "",
+        "Cliente",
+        `Respuesta sugerida: ${message.workflowOutput.suggestedReply}`,
+        `Siguiente paso: ${message.workflowOutput.nextStepExplanation}`
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    if (message.documentPreview) {
+      return buildDocumentShareText(message.documentPreview.title, message.documentPreview.business, message.documentPreview.draft);
+    }
+
+    if (message.diagnostic) {
+      return [
+        message.diagnostic.summary,
+        "",
+        "Causas probables:",
+        ...message.diagnostic.likely_causes.map((item) => `- ${item}`),
+        "",
+        "Siguientes pruebas:",
+        ...message.diagnostic.next_steps.map((item) => `- ${item}`)
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    return message.text;
+  }
+
   async function handleCopy() {
-    const textToCopy = message.workflowOutput
-      ? [
-          "Cliente",
-          `Resumen: ${message.workflowOutput.clientProblemSummary}`,
-          `Respuesta sugerida: ${message.workflowOutput.suggestedReply}`,
-          `Siguiente paso: ${message.workflowOutput.nextStepExplanation}`,
-          "",
-          "Taller",
-          `Brief interno: ${message.workflowOutput.internalJobBrief}`,
-          `Categoria probable: ${message.workflowOutput.likelyIssueCategory}`,
-          `Siguiente diagnostico: ${message.workflowOutput.recommendedNextDiagnosticStep}`
-        ].join("\n")
-      : message.diagnostic
-        ? message.diagnostic.summary
-        : message.text;
+    const textToCopy = buildShareText();
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -78,6 +117,27 @@ export function MessageBubble({
     } catch {
       setCopied(false);
     }
+  }
+
+  function handleShareMessage() {
+    const text = buildShareText();
+    if (!text.trim()) {
+      return;
+    }
+
+    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    onAction?.(message, {
+      kind: message.documentPreview
+        ? message.documentPreview.draft.documentType === "invoice"
+          ? "invoice"
+          : message.documentPreview.draft.documentType === "brief"
+            ? "brief"
+            : "quote"
+        : message.workflowOutput
+          ? "reply"
+          : "reply",
+      channel: "whatsapp"
+    });
   }
 
   function handleCopyDocument() {
@@ -175,17 +235,28 @@ export function MessageBubble({
       <div className={`${isUser ? "message-bubble-user" : "message-bubble-bot"} max-w-[82%] px-4 py-3 md:max-w-[75%]`}>
         {!isUser ? (
           <div className="mb-2 flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                void handleCopy();
-              }}
-              className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
-              aria-label="Copiar respuesta"
-              title="Copiar respuesta"
-            >
-              {copied ? "Copiado" : "Copiar"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleShareMessage}
+                className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                aria-label="Enviar por WhatsApp"
+                title="Enviar por WhatsApp"
+              >
+                <WhatsAppLabel />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleCopy();
+                }}
+                className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                aria-label="Copiar respuesta"
+                title="Copiar respuesta"
+              >
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -220,14 +291,7 @@ export function MessageBubble({
                     onClick={handleShareQuestions}
                     className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
                   >
-                    Compartir preguntas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareReminder}
-                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
-                  >
-                    Recordar cliente
+                    <WhatsAppLabel text="Compartir preguntas" />
                   </button>
                 </div>
               </div>
@@ -253,14 +317,7 @@ export function MessageBubble({
                     onClick={handleShareReply}
                     className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
                   >
-                    WhatsApp
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareReminder}
-                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
-                  >
-                    Recordar cliente
+                    <WhatsAppLabel text="Enviar respuesta" />
                   </button>
                 </div>
               </div>
@@ -320,7 +377,7 @@ export function MessageBubble({
                     onClick={handleShareDocument}
                     className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
                   >
-                    WhatsApp
+                    <WhatsAppLabel text="Enviar cotizacion" />
                   </button>
                   <button
                     type="button"
@@ -405,7 +462,7 @@ export function MessageBubble({
                     onClick={handleShareDocument}
                     className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
                   >
-                    WhatsApp
+                    <WhatsAppLabel text={message.documentPreview.draft.documentType === "invoice" ? "Enviar factura" : "Enviar por WhatsApp"} />
                   </button>
                   <button
                     type="button"

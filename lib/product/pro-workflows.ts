@@ -283,8 +283,45 @@ function buildPdfLines(input: { business: BusinessProfile; draft: ProDocumentDra
   const { business, draft } = input;
   const buckets = getQuoteLineBuckets(draft);
 
+  if (draft.documentType === "invoice") {
+    return [
+      "FACTURA / COBRO DE SERVICIO",
+      "",
+      `Negocio: ${business.business_name}`,
+      `Mecanico: ${business.mechanic_name}`,
+      `WhatsApp / Telefono: ${business.whatsapp_number}`,
+      `Correo: ${business.email || "Pendiente"}`,
+      `Direccion: ${business.business_address || "Pendiente"}`,
+      "",
+      `Cliente: ${draft.customerName || "Pendiente"}`,
+      `Telefono: ${draft.customerPhone || "Pendiente"}`,
+      `Vehiculo: ${[draft.vehicleYear, draft.vehicleMake, draft.vehicleModel, draft.vehicleEngine].filter(Boolean).join(" ") || draft.vehicleLabel || "Pendiente"}`,
+      `Fecha: ${draft.quoteDate || todayLabel()}`,
+      `Factura #: ${draft.quoteNumber || buildQuoteNumber()}`,
+      "",
+      `Resumen: ${draft.summary}`,
+      `Servicio: ${draft.recommendedService || draft.summary}`,
+      "",
+      `Diagnostico / inspeccion: ${buckets.diagnostic}`,
+      `Mano de obra: ${buckets.labor}`,
+      `Refacciones / partes: ${buckets.parts}`,
+      `Otros: ${buckets.other}`,
+      `Total: ${buckets.total}`,
+      "",
+      `Metodo de pago: ${draft.paymentMethod || "Pendiente"}`,
+      `Enlace de pago: ${business.payment_link || "Pendiente"}`,
+      "",
+      "Notas",
+      ...(draft.importantNotes?.length ? draft.importantNotes : [draft.notes || "Pago pendiente."])
+    ];
+  }
+
   if (draft.documentType !== "quote") {
     return [
+      business.business_name,
+      `WhatsApp: ${business.whatsapp_number}`,
+      business.payment_link ? `Pago: ${business.payment_link}` : "",
+      "",
       draft.summary,
       draft.notes
     ].filter(Boolean);
@@ -528,6 +565,26 @@ export function createBriefDocumentDraft(workflow: ProWorkflowOutput | null): Pr
 export function buildDocumentShareText(title: string, business: BusinessProfile, draft: ProDocumentDraft) {
   if (draft.documentType === "quote" || title.toLowerCase().includes("cotizacion")) {
     return buildShortQuoteText(business, draft);
+  }
+
+  if (draft.documentType === "invoice") {
+    return [
+      "FACTURA",
+      "",
+      `Negocio: ${business.business_name}`,
+      `Mecanico: ${business.mechanic_name}`,
+      `WhatsApp: ${business.whatsapp_number}`,
+      `Cliente: ${draft.customerName || "Pendiente"}`,
+      `Vehiculo: ${draft.vehicleLabel || "Pendiente"}`,
+      draft.customerPhone ? `Telefono: ${draft.customerPhone}` : "",
+      `Resumen: ${draft.summary}`,
+      draft.amountLabel ? `Total: ${draft.amountLabel}` : "",
+      `Enlace de pago: ${business.payment_link || "Pendiente"}`,
+      "",
+      draft.notes
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   return [

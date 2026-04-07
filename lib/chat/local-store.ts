@@ -30,6 +30,9 @@ export function createDefaultProCase(): ProCaseRecord {
     quoteVersion: 0,
     pendingQuestions: [],
     missingFields: [],
+    paidAt: undefined,
+    scheduledAt: undefined,
+    completedAt: undefined,
     sentHistory: []
   };
 }

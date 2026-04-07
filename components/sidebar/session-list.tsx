@@ -19,19 +19,19 @@ export function SessionList({ sessions, activeSessionId, onSelect }: Props) {
   function getStatusLabel(status: SessionSummary["proStatus"]) {
     switch (status) {
       case "missing_info":
-        return "Falta info";
+        return "Diagnostico";
       case "waiting_customer":
-        return "Esperando";
+        return "Cotizado";
       case "quoted":
         return "Cotizado";
       case "approved":
-        return "Aprobado";
+        return "Agendado";
       case "in_progress":
-        return "En trabajo";
+        return "Agendado";
       case "delivered":
-        return "Entregado";
+        return "Completado";
       default:
-        return "Nuevo";
+        return "Diagnostico";
     }
   }
 
@@ -40,13 +40,13 @@ export function SessionList({ sessions, activeSessionId, onSelect }: Props) {
       case "missing_info":
         return "bg-amber-100 text-amber-800";
       case "waiting_customer":
-        return "bg-sky-100 text-sky-800";
+        return "bg-emerald-100 text-emerald-800";
       case "quoted":
         return "bg-emerald-100 text-emerald-800";
       case "approved":
-        return "bg-green-100 text-green-800";
+        return "bg-blue-100 text-blue-800";
       case "in_progress":
-        return "bg-orange-100 text-orange-800";
+        return "bg-blue-100 text-blue-800";
       case "delivered":
         return "bg-violet-100 text-violet-800";
       default:
@@ -59,7 +59,7 @@ export function SessionList({ sessions, activeSessionId, onSelect }: Props) {
       return "Diagnostico guardado";
     }
 
-    const identity = [session.customerPhone, session.vehicleLabel].filter(Boolean).join(" • ");
+    const identity = [session.customerPhone, session.vehicleLabel].filter(Boolean).join(" - ");
     if (identity) {
       return identity;
     }
@@ -81,7 +81,7 @@ export function SessionList({ sessions, activeSessionId, onSelect }: Props) {
     }
 
     if (session.quoteVersion) {
-      return `Cotizacion v${session.quoteVersion}${session.lastSentLabel ? ` • ${session.lastSentLabel}` : ""}`;
+      return `Cotizacion v${session.quoteVersion}${session.lastSentLabel ? ` - ${session.lastSentLabel}` : ""}`;
     }
 
     return session.lastSentLabel || "Caso activo";
@@ -99,9 +99,7 @@ export function SessionList({ sessions, activeSessionId, onSelect }: Props) {
               type="button"
               onClick={() => onSelect(session.id)}
               className={`grid w-full grid-cols-[49px_1fr_auto] items-center gap-3 border-b border-[#f2f2f2] px-3 py-[10px] text-left transition ${
-                active
-                  ? "bg-[var(--wa-bg-panel)]"
-                  : "bg-[var(--wa-bg-sidebar)] hover:bg-black/5"
+                active ? "bg-[var(--wa-bg-panel)]" : "bg-[var(--wa-bg-sidebar)] hover:bg-black/5"
               }`}
             >
               <div className="flex h-[49px] w-[49px] items-center justify-center rounded-full bg-[#dfe5e7] text-sm font-semibold text-[var(--wa-text-secondary)]">
@@ -119,7 +117,10 @@ export function SessionList({ sessions, activeSessionId, onSelect }: Props) {
                 <p className="mt-1 truncate text-[12px] text-[var(--wa-text-secondary)]">{getMetaLine(session)}</p>
                 {summary ? <p className="mt-1 truncate text-[11px] text-[var(--wa-text-meta)]">{summary}</p> : null}
               </div>
-              <p className="text-[11px] text-[var(--wa-text-meta)]">{formatUpdatedAt(session.updatedAt)}</p>
+              <div className="text-right">
+                <p className="text-[11px] text-[var(--wa-text-meta)]">{formatUpdatedAt(session.updatedAt)}</p>
+                {session.paidAt ? <p className="mt-1 text-[10px] font-semibold text-emerald-700">Pagado</p> : null}
+              </div>
             </button>
           );
         })

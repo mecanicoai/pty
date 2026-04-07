@@ -5,6 +5,7 @@ export type AppExperienceMode = "diy" | "pro";
 export type ProWorkspaceView = "client_message" | "chat" | "quote" | "invoice" | "brief";
 
 export type ProCaseStatus = "new" | "missing_info" | "waiting_customer" | "quoted" | "approved" | "in_progress" | "delivered";
+export type ProPipelineStage = "diagnosis" | "quoted" | "scheduled" | "completed";
 
 export interface ProSentRecord {
   kind: "questions" | "reply" | "quote" | "invoice" | "brief" | "reminder";
@@ -19,6 +20,9 @@ export interface ProCaseRecord {
   pendingQuestions: string[];
   missingFields: string[];
   approvedAt?: string;
+  scheduledAt?: string;
+  completedAt?: string;
+  paidAt?: string;
   lastQuoteAt?: string;
   lastQuoteNumber?: string;
   lastSentAt?: string;

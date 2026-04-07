@@ -23,6 +23,19 @@ interface Props {
     detail: string;
     helper?: string;
     tone?: "neutral" | "warning" | "success";
+    pipeline?: {
+      currentStage: "diagnosis" | "quoted" | "scheduled" | "completed";
+      paid: boolean;
+      stages: Array<{
+        id: "diagnosis" | "quoted" | "scheduled" | "completed";
+        label: string;
+        active: boolean;
+        completed: boolean;
+        onClick: () => void;
+      }>;
+      paidLabel: string;
+      onTogglePaid: () => void;
+    };
     actionLabel?: string;
     onAction?: () => void;
     secondaryActionLabel?: string;
@@ -180,18 +193,36 @@ export function ChatPanel({
 
       {mode === "pro" ? (
         <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
-          <div className="overflow-x-auto">
-            <div className="inline-flex max-w-full items-center rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-sm font-medium text-[var(--wa-control-text)] shadow-sm">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <div className="inline-flex max-w-full shrink-0 items-center rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-sm font-medium text-[var(--wa-control-text)] shadow-sm">
               <span className="truncate">{threadTitle}</span>
             </div>
+            {proActions
+              .filter((action) => action.id === "history" || action.id === "new-client")
+              .map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={action.onClick}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
+                    action.id === "history"
+                      ? "border border-[#d6b96a] bg-[#fff2c8] text-[#7a5800] hover:bg-[#ffe8a2]"
+                      : "border border-[#9fd1b9] bg-[#dff7ec] text-[#166746] hover:bg-[#c6f0dd]"
+                  }`}
+                >
+                  {action.label}
+                </button>
+              ))}
           </div>
         </div>
       ) : null}
 
-      {mode === "pro" && proActions.length ? (
+      {mode === "pro" && proActions.filter((action) => action.id !== "history" && action.id !== "new-client").length ? (
         <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {proActions.map((action) => (
+            {proActions
+              .filter((action) => action.id !== "history" && action.id !== "new-client")
+              .map((action) => (
               <button
                 key={action.id}
                 type="button"
@@ -222,6 +253,39 @@ export function ChatPanel({
             <p className="mt-1 text-sm font-medium text-[var(--wa-text-primary)]">{proThreadBanner.detail}</p>
             {proThreadBanner.helper ? (
               <p className="mt-1 text-xs leading-5 text-[var(--wa-text-secondary)]">{proThreadBanner.helper}</p>
+            ) : null}
+            {proThreadBanner.pipeline ? (
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {proThreadBanner.pipeline.stages.map((stage) => (
+                    <button
+                      key={stage.id}
+                      type="button"
+                      onClick={stage.onClick}
+                      className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                        stage.active
+                          ? "border-[var(--taller-green)] bg-[var(--taller-green)] text-white"
+                          : stage.completed
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : "border-[var(--wa-divider)] bg-[var(--wa-control-bg)] text-[var(--wa-text-secondary)] hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                      }`}
+                    >
+                      {stage.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={proThreadBanner.pipeline.onTogglePaid}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                    proThreadBanner.pipeline.paid
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-[var(--wa-divider)] bg-[var(--wa-control-bg)] text-[var(--wa-text-secondary)] hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  }`}
+                >
+                  {proThreadBanner.pipeline.paidLabel}
+                </button>
+              </div>
             ) : null}
             {proThreadBanner.actionLabel || proThreadBanner.secondaryActionLabel ? (
               <div className="mt-3 flex flex-wrap gap-2">

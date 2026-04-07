@@ -56,6 +56,7 @@ import type {
   AppExperienceMode,
   BusinessProfile,
   ProCaseRecord,
+  ProPipelineStage,
   ProCaseStatus,
   ProSentRecord,
   ProWorkflowOutput,
@@ -212,6 +213,77 @@ function getStatusLabel(language: AppLanguage, status: ProCaseStatus) {
   }
 }
 
+function getPipelineStageFromStatus(status: ProCaseStatus): ProPipelineStage {
+  switch (status) {
+    case "waiting_customer":
+    case "quoted":
+      return "quoted";
+    case "approved":
+    case "in_progress":
+      return "scheduled";
+    case "delivered":
+      return "completed";
+    default:
+      return "diagnosis";
+  }
+}
+
+function getPipelineStageLabel(language: AppLanguage, stage: ProPipelineStage) {
+  if (language === "en") {
+    switch (stage) {
+      case "diagnosis":
+        return "Diagnosis";
+      case "quoted":
+        return "Quoted";
+      case "scheduled":
+        return "Scheduled";
+      case "completed":
+        return "Completed";
+    }
+  }
+
+  switch (stage) {
+    case "diagnosis":
+      return "Diagnostico";
+    case "quoted":
+      return "Cotizado";
+    case "scheduled":
+      return "Agendado";
+    case "completed":
+      return "Completado";
+  }
+}
+
+function getPipelineStatusFromStage(stage: ProPipelineStage, existing: ProCaseRecord | null | undefined): ProCaseStatus {
+  if (stage === "diagnosis") {
+    return existing?.missingFields?.length ? "missing_info" : "new";
+  }
+  if (stage === "quoted") {
+    return existing?.pendingQuestions?.length ? "waiting_customer" : "quoted";
+  }
+  if (stage === "scheduled") {
+    return "approved";
+  }
+  return "delivered";
+}
+
+function getPipelineRank(status: ProCaseStatus) {
+  switch (getPipelineStageFromStatus(status)) {
+    case "diagnosis":
+      return 0;
+    case "quoted":
+      return 1;
+    case "scheduled":
+      return 2;
+    case "completed":
+      return 3;
+  }
+}
+
+function mergeWorkflowStatus(currentStatus: ProCaseStatus, nextStatus: ProCaseStatus) {
+  return getPipelineRank(currentStatus) > getPipelineRank(nextStatus) ? currentStatus : nextStatus;
+}
+
 function getNextProStatus(workflow: ProWorkflowOutput): ProCaseStatus {
   if (workflow.unansweredQuestions.length) {
     return "waiting_customer";
@@ -224,6 +296,27 @@ function getNextProStatus(workflow: ProWorkflowOutput): ProCaseStatus {
 
 function isApprovalMessage(message: string) {
   return /\bautorizo\b/i.test(message) || /\bapproved?\b/i.test(message);
+}
+
+function getManualPipelineStageFromMessage(message: string): ProPipelineStage | null {
+  const value = message.toLowerCase();
+  if (/\b(diagnostico|diagnosis|triage|en diagnostico)\b/i.test(value)) {
+    return "diagnosis";
+  }
+  if (/\b(cotizado|cotizacion enviada|quoted?|quote)\b/i.test(value)) {
+    return "quoted";
+  }
+  if (/\b(agendado|agendada|programado|programada|scheduled?)\b/i.test(value)) {
+    return "scheduled";
+  }
+  if (/\b(completado|completada|terminado|terminada|entregado|entregada|completed|done)\b/i.test(value)) {
+    return "completed";
+  }
+  return null;
+}
+
+function isPaidMessage(message: string) {
+  return /\b(pagado|pagada|paid|cobrado|cobrada)\b/i.test(message);
 }
 
 function buildCustomerReminderText(session: LocalChatSession, workflow: ProWorkflowOutput | null) {
@@ -765,7 +858,51 @@ export function ChatLayout() {
         proCase: {
           ...proCase,
           status,
-          approvedAt: status === "approved" ? now : proCase.approvedAt
+          approvedAt: status === "approved" ? now : proCase.approvedAt,
+          scheduledAt: status === "approved" || status === "in_progress" ? now : proCase.scheduledAt,
+          completedAt: status === "delivered" ? now : proCase.completedAt
+        },
+        updatedAt: now
+      };
+    });
+  }
+
+  function setProSessionStage(sessionId: string | null, stage: ProPipelineStage) {
+    updateSessionById(sessionId, (session) => {
+      if (session.experienceMode !== "pro") {
+        return session;
+      }
+
+      const now = new Date().toISOString();
+      const proCase = session.proCase ?? getDefaultProCaseRecord();
+      const nextStatus = getPipelineStatusFromStage(stage, proCase);
+      return {
+        ...session,
+        proCase: {
+          ...proCase,
+          status: nextStatus,
+          approvedAt: stage === "scheduled" ? now : proCase.approvedAt,
+          scheduledAt: stage === "scheduled" ? now : proCase.scheduledAt,
+          completedAt: stage === "completed" ? now : proCase.completedAt
+        },
+        updatedAt: now
+      };
+    });
+  }
+
+  function setProSessionPaid(sessionId: string | null, paid: boolean) {
+    updateSessionById(sessionId, (session) => {
+      if (session.experienceMode !== "pro") {
+        return session;
+      }
+
+      const now = new Date().toISOString();
+      const proCase = session.proCase ?? getDefaultProCaseRecord();
+      return {
+        ...session,
+        proCase: {
+          ...proCase,
+          paidAt: paid ? now : undefined
         },
         updatedAt: now
       };
@@ -1062,6 +1199,32 @@ export function ChatLayout() {
         return;
       }
 
+      if (targetSession.experienceMode === "pro") {
+        const manualStage = getManualPipelineStageFromMessage(messageText);
+        const markPaid = isPaidMessage(messageText);
+
+        if (manualStage || markPaid) {
+          updateSessionById(targetSessionId, (session) => {
+            const nowAt = new Date().toISOString();
+            const proCase = session.proCase ?? getDefaultProCaseRecord();
+            const nextStatus = manualStage ? getPipelineStatusFromStage(manualStage, proCase) : proCase.status;
+
+            return {
+              ...session,
+              proCase: {
+                ...proCase,
+                status: nextStatus,
+                approvedAt: manualStage === "scheduled" ? nowAt : proCase.approvedAt,
+                scheduledAt: manualStage === "scheduled" ? nowAt : proCase.scheduledAt,
+                completedAt: manualStage === "completed" ? nowAt : proCase.completedAt,
+                paidAt: markPaid ? nowAt : proCase.paidAt
+              },
+              updatedAt: nowAt
+            };
+          });
+        }
+      }
+
       if (targetSession.experienceMode === "pro" && latestWorkflowBefore && isApprovalMessage(messageText)) {
         const approvedAt = new Date().toISOString();
         updateSessionById(targetSessionId, (session) => ({
@@ -1179,12 +1342,16 @@ export function ChatLayout() {
             nextWorkflow && session.experienceMode === "pro"
               ? {
                   ...(session.proCase ?? getDefaultProCaseRecord()),
-                  status: getNextProStatus(nextWorkflow),
+                  status: mergeWorkflowStatus(session.proCase?.status ?? "new", getNextProStatus(nextWorkflow)),
                   quoteVersion: nextQuotePreview ? nextQuoteVersion : (session.proCase?.quoteVersion ?? 0),
                   pendingQuestions: nextWorkflow.unansweredQuestions,
                   missingFields: [],
                   lastQuoteAt: nextQuotePreview ? assistantCreatedAt : session.proCase?.lastQuoteAt,
                   lastQuoteNumber: nextQuotePreview?.draft.quoteNumber || session.proCase?.lastQuoteNumber,
+                  approvedAt: session.proCase?.approvedAt,
+                  scheduledAt: session.proCase?.scheduledAt,
+                  completedAt: session.proCase?.completedAt,
+                  paidAt: session.proCase?.paidAt,
                   sentHistory: nextQuotePreview
                     ? appendSentRecord((session.proCase ?? getDefaultProCaseRecord()).sentHistory, {
                         kind: "quote",
@@ -1340,6 +1507,29 @@ export function ChatLayout() {
     });
   }
 
+  function handleMasterMechanicAction() {
+    if (!activeSession) {
+      return;
+    }
+
+    if (!businessProfile) {
+      setBusinessModalOpen(true);
+      return;
+    }
+
+    if (!isProUnlocked) {
+      setPricingOpen(true);
+      return;
+    }
+
+    appendAssistantMessage({
+      text:
+        language === "es"
+          ? "Listo. Pasa la falla, el ruido, el codigo o el contexto del taller y lo vemos como Maestro."
+          : "Ready. Send the fault, noise, code, or shop context and we will work through it as Master Mechanic."
+    });
+  }
+
   async function handleNewThread() {
     const session = createLocalSession(language, currentChatExperienceMode);
     setSessions((prev) => [session, ...prev]);
@@ -1458,8 +1648,19 @@ export function ChatLayout() {
   }
 
   async function handleClearAll() {
-    const confirmed = window.confirm(language === "es" ? "Quieres borrar todo el historial?" : "Clear all history?");
-    if (!confirmed) {
+    const firstGate = window.confirm(
+      language === "es" ? "Quieres borrar todo el historial?" : "Do you want to clear all history?"
+    );
+    if (!firstGate) {
+      return;
+    }
+
+    const secondGate = window.confirm(
+      language === "es"
+        ? "Esto borrara todos los hilos guardados. Si estas seguro, pulsa OK para borrar todo."
+        : "This will delete all saved threads. If you are sure, press OK to delete everything."
+    );
+    if (!secondGate) {
       return;
     }
 
@@ -1469,6 +1670,100 @@ export function ChatLayout() {
     setActiveSessionId(fresh.id);
     setMenuOpen(false);
     setHistoryOpen(false);
+  }
+
+  async function handleBackupLog() {
+    const header = [
+      "thread_id",
+      "thread_title",
+      "mode",
+      "updated_at",
+      "customer_name",
+      "customer_phone",
+      "vehicle_label",
+      "status",
+      "quote_version",
+      "message_created_at",
+      "message_role",
+      "message_text"
+    ];
+
+    const escapeCsv = (value: string | number | null | undefined) => {
+      const normalized = String(value ?? "").replace(/\r?\n/g, " ").replace(/"/g, '""');
+      return `"${normalized}"`;
+    };
+
+    const rows = sessions.flatMap((session) => {
+      if (!session.messages.length) {
+        return [
+          [
+            session.id,
+            session.title,
+            session.experienceMode,
+            session.updatedAt,
+            session.customerName || "",
+            session.customerPhone || "",
+            session.vehicleLabel || "",
+            session.proCase?.status || "",
+            session.proCase?.quoteVersion ?? "",
+            "",
+            "",
+            ""
+          ]
+        ];
+      }
+
+      return session.messages.map((message) => [
+        session.id,
+        session.title,
+        session.experienceMode,
+        session.updatedAt,
+        session.customerName || "",
+        session.customerPhone || "",
+        session.vehicleLabel || "",
+        session.proCase?.status || "",
+        session.proCase?.quoteVersion ?? "",
+        message.createdAt,
+        message.role,
+        message.text ||
+          message.workflowOutput?.suggestedReply ||
+          message.workflowOutput?.internalJobBrief ||
+          message.diagnostic?.summary ||
+          ""
+      ]);
+    });
+
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => escapeCsv(cell as string | number | null | undefined)).join(","))
+      .join("\r\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const fileName = `mecanico-backup-${new Date().toISOString().slice(0, 10)}.csv`;
+    const file = new File([blob], fileName, { type: "text/csv" });
+
+    try {
+      if (typeof navigator !== "undefined" && "canShare" in navigator && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "Mecanico backup",
+          text: language === "es" ? "Guarda este respaldo en Google Drive." : "Save this backup to Google Drive."
+        });
+      } else {
+        const url = window.URL.createObjectURL(blob);
+        const anchor = window.document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        window.document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : language === "es" ? "No se pudo exportar el CSV." : "Could not export the CSV.");
+      return;
+    }
+
+    setMenuOpen(false);
   }
 
   function handleToggleLanguage() {
@@ -1578,18 +1873,11 @@ export function ChatLayout() {
   const usageLabel = getPlanUsageLabel(language, plan, usage);
   const isProUnlocked = plan === "pro";
   const importMissingFields = getMissingLeadFields(importLeadDraft);
-  const shouldShowProBanner =
-    selectedMode === "pro" &&
-    activeSession &&
-    activeProCase &&
-    (activeProCase.status === "missing_info" ||
-      activeProCase.status === "waiting_customer" ||
-      activeProCase.status === "approved" ||
-      activeProCase.status === "in_progress");
+  const shouldShowProBanner = selectedMode === "pro" && activeSession && activeProCase;
   const proThreadBanner =
     shouldShowProBanner && activeSession && activeProCase
       ? {
-          statusLabel: getStatusLabel(language, activeProCase.status),
+          statusLabel: language === "es" ? "Pipeline del caso" : "Case pipeline",
           detail:
             activeProCase.status === "missing_info"
               ? language === "es"
@@ -1632,6 +1920,19 @@ export function ChatLayout() {
               : activeProCase.status === "approved" || activeProCase.status === "delivered"
                 ? ("success" as const)
                 : ("neutral" as const),
+          pipeline: {
+            currentStage: getPipelineStageFromStatus(activeProCase.status),
+            paid: Boolean(activeProCase.paidAt),
+            stages: (["diagnosis", "quoted", "scheduled", "completed"] as ProPipelineStage[]).map((stage) => ({
+              id: stage,
+              label: getPipelineStageLabel(language, stage),
+              active: getPipelineStageFromStatus(activeProCase.status) === stage,
+              completed: getPipelineRank(getPipelineStatusFromStage(stage, activeProCase)) < getPipelineRank(activeProCase.status),
+              onClick: () => setProSessionStage(activeSession.id, stage)
+            })),
+            paidLabel: activeProCase.paidAt ? (language === "es" ? "Pagado" : "Paid") : language === "es" ? "Marcar pagado" : "Mark paid",
+            onTogglePaid: () => setProSessionPaid(activeSession.id, !activeProCase.paidAt)
+          },
           actionLabel:
             activeProCase.status === "missing_info"
               ? language === "es"
@@ -1639,27 +1940,15 @@ export function ChatLayout() {
                 : "Complete details"
               : activeProCase.status === "waiting_customer" || activeProCase.status === "quoted"
                 ? language === "es"
-                  ? "Recordar cliente"
-                  : "Remind customer"
-                : activeProCase.status === "approved"
-                  ? language === "es"
-                    ? "Marcar en trabajo"
-                    : "Mark in progress"
-                  : activeProCase.status === "in_progress"
-                    ? language === "es"
-                      ? "Marcar entregado"
-                      : "Mark delivered"
-                    : undefined,
+                  ? "Enviar preguntas"
+                  : "Send follow up questions"
+                : undefined,
           onAction:
             activeProCase.status === "missing_info"
               ? openTriageFromBanner
               : activeProCase.status === "waiting_customer" || activeProCase.status === "quoted"
                 ? handleThreadReminder
-                : activeProCase.status === "approved"
-                  ? () => setProSessionStatus(activeSession.id, "in_progress")
-                  : activeProCase.status === "in_progress"
-                    ? () => setProSessionStatus(activeSession.id, "delivered")
-                    : undefined,
+                : undefined,
           secondaryActionLabel:
             activeProCase.status === "waiting_customer" || activeProCase.status === "quoted"
               ? language === "es"
@@ -1671,18 +1960,74 @@ export function ChatLayout() {
         }
       : null;
   const proActions =
-    selectedMode === "pro"
+    selectedMode === "pro" && activeSession?.experienceMode === "pro"
       ? [
           {
             id: "triage",
-            label: language === "es" ? "New Client Intake" : "New Client Intake",
+            label:
+              language === "es"
+                ? activeProCase?.status === "new" && !activeWorkflow && !activeSession.customerName && !activeSession.vehicleLabel
+                  ? "Nuevo ingreso"
+                  : "Actualizar triage"
+                : activeProCase?.status === "new" && !activeWorkflow && !activeSession.customerName && !activeSession.vehicleLabel
+                  ? "New intake"
+                  : "Refresh triage",
             onClick: () => handleProActionInChat("triage")
           },
           {
             id: "history",
-            label: language === "es" ? "Client history" : "Client history",
+            label: language === "es" ? "Historial clientes" : "Client history",
             onClick: () => setHistoryOpen(true)
-          }
+          },
+          {
+            id: "new-client",
+            label: language === "es" ? "Nuevo cliente" : "New customer",
+            onClick: () => {
+              void handleNewThread();
+            }
+          },
+          {
+            id: "quote",
+            label: language === "es" ? "Cotizacion" : "Quote",
+            onClick: () => handleProActionInChat("quote")
+          },
+          {
+            id: "invoice",
+            label: language === "es" ? "Factura" : "Invoice",
+            onClick: () => handleProActionInChat("invoice")
+          },
+          {
+            id: "maestro",
+            label: language === "es" ? "Maestro" : "Master",
+            onClick: handleMasterMechanicAction
+          },
+          ...(() => {
+            if (!activeProCase) {
+              return [] as Array<{ id: string; label: string; onClick: () => void }>;
+            }
+
+            if (activeProCase.status === "missing_info") {
+              return [
+                {
+                  id: "complete-details",
+                  label: language === "es" ? "Completar datos" : "Complete details",
+                  onClick: openTriageFromBanner
+                }
+              ];
+            }
+
+            if (activeProCase.status === "waiting_customer" || activeProCase.status === "quoted") {
+              return [
+                {
+                  id: "reminder",
+                  label: language === "es" ? "Recordatorio" : "Reminder",
+                  onClick: handleThreadReminder
+                }
+              ];
+            }
+
+            return [] as Array<{ id: string; label: string; onClick: () => void }>;
+          })()
         ]
       : [];
 
@@ -1842,7 +2187,8 @@ export function ChatLayout() {
                   pendingQuestionsCount: session.proCase?.pendingQuestions.length,
                   missingFields: session.proCase?.missingFields,
                   lastSentLabel: session.proCase?.lastSentLabel,
-                  approvedAt: session.proCase?.approvedAt
+                  approvedAt: session.proCase?.approvedAt,
+                  paidAt: session.proCase?.paidAt
                 }))}
                 activeSessionId={activeSessionId}
                 onSelect={(id: string) => {
@@ -1898,6 +2244,19 @@ export function ChatLayout() {
               </Button>
               <Button type="button" variant="secondary" onClick={() => setPricingOpen(true)}>
                 {language === "es" ? "Planes" : "Plans"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setBusinessModalOpen(true);
+                  setMenuOpen(false);
+                }}
+              >
+                {language === "es" ? "Editar negocio" : "Edit business"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => void handleBackupLog()}>
+                {language === "es" ? "Respaldar log" : "Backup log"}
               </Button>
               <Button type="button" variant="secondary" onClick={handleToggleLanguage}>
                 {language === "es" ? "English" : "Espanol"}

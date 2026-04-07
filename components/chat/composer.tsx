@@ -317,7 +317,11 @@ export function Composer({
                 void submit();
               }
             }}
-            placeholder={language === "es" ? "Describe el sintoma, ruido o codigo" : "Describe the symptom, noise, or code"}
+            placeholder={
+              language === "es"
+                ? "Ingresa instrucciones, tarea, pregunta o comando aqui"
+                : "Enter Instructions, Task, Question or Command Here"
+            }
             className="h-[50px] w-full rounded-[999px] border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-5 text-[17px] text-[var(--wa-control-text)] outline-none ring-0 placeholder:text-[var(--wa-control-placeholder)] focus:border-[var(--taller-green)] focus:shadow-[0_0_0_3px_rgba(23,156,99,0.12)]"
           />
         </div>
