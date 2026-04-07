@@ -152,13 +152,13 @@ function buildProSessionTitle(language: AppLanguage, customerName?: string, vehi
   const cleanVehicle = vehicleLabel?.trim() || "";
 
   if (cleanCustomer && cleanVehicle) {
-    return `${cleanCustomer} • ${cleanVehicle}`;
-  }
-  if (cleanCustomer) {
-    return cleanCustomer;
+    return `${cleanVehicle} • ${cleanCustomer}`;
   }
   if (cleanVehicle) {
     return cleanVehicle;
+  }
+  if (cleanCustomer) {
+    return cleanCustomer;
   }
   if (fallbackMessage?.trim()) {
     return fallbackMessage.trim().slice(0, 48);
@@ -1675,23 +1675,13 @@ export function ChatLayout() {
       ? [
           {
             id: "triage",
-            label: language === "es" ? "Triage y cotizacion" : "Triage and quote",
+            label: language === "es" ? "New Client Intake" : "New Client Intake",
             onClick: () => handleProActionInChat("triage")
           },
           {
-            id: "quote",
-            label: language === "es" ? "Cotizacion" : "Quote",
-            onClick: () => handleProActionInChat("quote")
-          },
-          {
-            id: "invoice",
-            label: language === "es" ? "Factura" : "Invoice",
-            onClick: () => handleProActionInChat("invoice")
-          },
-          {
-            id: "brief",
-            label: language === "es" ? "Brief interno" : "Internal brief",
-            onClick: () => handleProActionInChat("brief")
+            id: "history",
+            label: language === "es" ? "Client history" : "Client history",
+            onClick: () => setHistoryOpen(true)
           }
         ]
       : [];
@@ -1716,7 +1706,7 @@ export function ChatLayout() {
         <div className="mx-auto flex min-h-screen w-full max-w-[520px] bg-[var(--wa-bg-sidebar)] md:max-w-[640px] lg:max-w-[820px]">
           <div className="wa-phone-shell relative flex min-h-screen min-w-0 flex-1 flex-col shadow-[var(--wa-shadow-md)]">
             <ChatPanel
-              title={activeTitle}
+              threadTitle={activeTitle}
               language={language}
               isDarkMode={isDarkMode}
               mode={currentChatExperienceMode}

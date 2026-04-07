@@ -8,7 +8,7 @@ import type { SubscriptionPlan } from "@/lib/billing/plans";
 import type { AppLanguage, ChatAttachment } from "@/types/chat";
 
 interface Props {
-  title: string;
+  threadTitle: string;
   language: AppLanguage;
   isDarkMode: boolean;
   mode: "diy" | "pro";
@@ -48,7 +48,7 @@ interface Props {
 }
 
 export function ChatPanel({
-  title,
+  threadTitle,
   language,
   isDarkMode,
   mode,
@@ -76,7 +76,6 @@ export function ChatPanel({
   const labels =
     language === "es"
       ? {
-          title: title || "Mecanico AI",
           statusShort: "En linea",
           statusLong: mode === "diy" ? "Guia practica para tu carro" : "Tus clientes y casos guardados",
           history: "Clientes",
@@ -88,7 +87,6 @@ export function ChatPanel({
           menu: "Abrir menu"
         }
       : {
-          title: title || "Mecanico AI",
           statusShort: "Online",
           statusLong: mode === "diy" ? "Practical car guidance" : "Saved customers and cases",
           history: "Customers",
@@ -107,26 +105,12 @@ export function ChatPanel({
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-[18px] bg-white text-2xl shadow-inner">
             <Image src="/mecanico-logo.png" alt="Mecanico AI" width={36} height={36} className="h-9 w-9 object-cover" />
           </div>
-          <div className="min-w-0">
-            <div className="truncate text-base font-semibold md:text-lg">{labels.title}</div>
-            <div className="flex items-center gap-1 text-[11px] opacity-90 md:text-xs">
-              <div className="h-2 w-2 rounded-full bg-[#8bc34a] animate-pulse" />
-              <span>{labels.statusShort}</span>
-              <span className="hidden sm:inline">• {labels.statusLong}</span>
-            </div>
+          <div className="flex min-w-0 items-center gap-1 text-[11px] opacity-90 md:text-xs">
+            <div className="h-2 w-2 rounded-full bg-[#8bc34a] animate-pulse" />
+            <span>{labels.statusShort}</span>
+            <span className="hidden sm:inline">• {labels.statusLong}</span>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={onOpenHistory}
-          className="flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1.5 text-[11px] font-medium transition hover:bg-white/20 md:px-3 md:text-xs"
-          aria-label={labels.history}
-          title={labels.history}
-        >
-          <span aria-hidden="true">{"\u21BA"}</span>
-          <span>{labels.history}</span>
-        </button>
 
         <button
           type="button"
@@ -193,6 +177,16 @@ export function ChatPanel({
           {"\u22EE"}
         </button>
       </header>
+
+      {mode === "pro" ? (
+        <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
+          <div className="overflow-x-auto">
+            <div className="inline-flex max-w-full items-center rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-sm font-medium text-[var(--wa-control-text)] shadow-sm">
+              <span className="truncate">{threadTitle}</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {mode === "pro" && proActions.length ? (
         <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
