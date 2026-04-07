@@ -1,6 +1,11 @@
 import type { DiagnosticResponse } from "@/types/chat";
 import type { BusinessProfile, ProDocumentDraft, ProWorkflowOutput } from "@/types/product";
 
+export interface MessageActionEvent {
+  kind: "questions" | "reply" | "quote" | "invoice" | "brief" | "reminder";
+  channel: "copy" | "whatsapp" | "pdf";
+}
+
 export interface UiMessage {
   id: string;
   role: "user" | "assistant";
@@ -13,6 +18,7 @@ export interface UiMessage {
     title: string;
     draft: ProDocumentDraft;
     business: BusinessProfile;
+    version?: number;
   };
   attachmentNames?: string[];
 }

@@ -77,6 +77,7 @@ export function PricingSheet({
         };
 
   const orderedPlans: SubscriptionPlan[] = ["free", "basic", "pro"];
+  const freeLimitReached = currentPlan === "free" && (usage.totalRemaining ?? 0) <= 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40" onClick={onClose}>
@@ -97,6 +98,19 @@ export function PricingSheet({
             <p className="text-sm text-[var(--wa-text-secondary)]">{copy.usage}</p>
           </div>
         </div>
+
+        {freeLimitReached ? (
+          <div className="mb-4 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-semibold text-amber-900">
+              {language === "es" ? "Ya se acabaron tus 5 preguntas gratis." : "You used all 5 free questions."}
+            </p>
+            <p className="mt-1 text-sm text-amber-800">
+              {language === "es"
+                ? "Si quieres seguir con este caso, sube a DIY o a Pro para abrir mas diagnosticos y seguimiento."
+                : "Upgrade to DIY or Pro to keep working this case with more diagnostics and follow-up."}
+            </p>
+          </div>
+        ) : null}
 
         <div className="space-y-3">
           {orderedPlans.map((plan) => {

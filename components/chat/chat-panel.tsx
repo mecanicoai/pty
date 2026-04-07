@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Composer } from "@/components/chat/composer";
 import { DiyHome } from "@/components/chat/diy-home";
 import { MessageList } from "@/components/chat/message-list";
-import type { UiMessage } from "@/components/chat/types";
+import type { MessageActionEvent, UiMessage } from "@/components/chat/types";
 import type { SubscriptionPlan } from "@/lib/billing/plans";
 import type { AppLanguage, ChatAttachment } from "@/types/chat";
 
@@ -18,6 +18,16 @@ interface Props {
   disabled?: boolean;
   plan: SubscriptionPlan;
   usageLabel: string;
+  proThreadBanner?: {
+    statusLabel: string;
+    detail: string;
+    helper?: string;
+    tone?: "neutral" | "warning" | "success";
+    actionLabel?: string;
+    onAction?: () => void;
+    secondaryActionLabel?: string;
+    onSecondaryAction?: () => void;
+  } | null;
   proActions?: Array<{
     id: string;
     label: string;
@@ -34,6 +44,7 @@ interface Props {
   onOpenPlans: () => void;
   onLockedFeature: (feature: "voice" | "attachments") => void;
   onOpenMenu: () => void;
+  onMessageAction?: (message: UiMessage, action: MessageActionEvent) => void;
 }
 
 export function ChatPanel({
@@ -47,6 +58,7 @@ export function ChatPanel({
   disabled = false,
   plan,
   usageLabel,
+  proThreadBanner,
   proActions = [],
   onSend,
   onSuggestedPrompt,
@@ -58,16 +70,16 @@ export function ChatPanel({
   onToggleDarkMode,
   onOpenPlans,
   onLockedFeature,
-  onOpenMenu
+  onOpenMenu,
+  onMessageAction
 }: Props) {
   const labels =
     language === "es"
       ? {
           title: title || "Mecanico AI",
           statusShort: "En linea",
-          statusLong: mode === "diy" ? "Guia practica para tu carro" : "Tu companero en el taller",
-          planBadge: plan === "free" ? "DIY gratis" : plan === "basic" ? "DIY Plus" : "Pro",
-          history: "Abrir historial",
+          statusLong: mode === "diy" ? "Guia practica para tu carro" : "Tus clientes y casos guardados",
+          history: "Clientes",
           vehicle: "Datos del vehiculo",
           newChat: mode === "pro" ? "Nuevo cliente" : "Nuevo chat",
           language: "Cambiar idioma",
@@ -78,9 +90,8 @@ export function ChatPanel({
       : {
           title: title || "Mecanico AI",
           statusShort: "Online",
-          statusLong: mode === "diy" ? "Practical car guidance" : "Your shop companion",
-          planBadge: plan === "free" ? "DIY Free" : plan === "basic" ? "DIY Plus" : "Pro",
-          history: "Open history",
+          statusLong: mode === "diy" ? "Practical car guidance" : "Saved customers and cases",
+          history: "Customers",
           vehicle: "Vehicle details",
           newChat: mode === "pro" ? "New customer" : "New chat",
           language: "Change language",
@@ -109,11 +120,12 @@ export function ChatPanel({
         <button
           type="button"
           onClick={onOpenHistory}
-          className="hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg transition hover:bg-white/20 md:flex"
+          className="flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1.5 text-[11px] font-medium transition hover:bg-white/20 md:px-3 md:text-xs"
           aria-label={labels.history}
           title={labels.history}
         >
-          {"\u21BA"}
+          <span aria-hidden="true">{"\u21BA"}</span>
+          <span>{labels.history}</span>
         </button>
 
         <button
@@ -182,19 +194,6 @@ export function ChatPanel({
         </button>
       </header>
 
-      <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
-        <button
-          type="button"
-          onClick={onOpenPlans}
-          className="inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-xs font-medium text-[var(--wa-control-text)] shadow-sm transition hover:bg-[var(--wa-control-bg-soft)]"
-        >
-          <span className="rounded-full bg-[var(--wa-control-bg-soft)] px-2 py-0.5 text-[11px] uppercase tracking-wide text-[var(--wa-text-secondary)]">
-            {labels.planBadge}
-          </span>
-          <span className="truncate">{usageLabel}</span>
-        </button>
-      </div>
-
       {mode === "pro" && proActions.length ? (
         <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -212,11 +211,60 @@ export function ChatPanel({
         </div>
       ) : null}
 
+      {mode === "pro" && proThreadBanner ? (
+        <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
+          <div
+            className={`rounded-[20px] border px-3 py-3 shadow-sm ${
+              proThreadBanner.tone === "warning"
+                ? "border-amber-200 bg-amber-50"
+                : proThreadBanner.tone === "success"
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-[var(--wa-divider)] bg-[var(--wa-bg-app)]"
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--wa-text-secondary)]">
+              {proThreadBanner.statusLabel}
+            </p>
+            <p className="mt-1 text-sm font-medium text-[var(--wa-text-primary)]">{proThreadBanner.detail}</p>
+            {proThreadBanner.helper ? (
+              <p className="mt-1 text-xs leading-5 text-[var(--wa-text-secondary)]">{proThreadBanner.helper}</p>
+            ) : null}
+            {proThreadBanner.actionLabel || proThreadBanner.secondaryActionLabel ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {proThreadBanner.actionLabel && proThreadBanner.onAction ? (
+                  <button
+                    type="button"
+                    onClick={proThreadBanner.onAction}
+                    className="rounded-full bg-[var(--taller-green)] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#138655]"
+                  >
+                    {proThreadBanner.actionLabel}
+                  </button>
+                ) : null}
+                {proThreadBanner.secondaryActionLabel && proThreadBanner.onSecondaryAction ? (
+                  <button
+                    type="button"
+                    onClick={proThreadBanner.onSecondaryAction}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    {proThreadBanner.secondaryActionLabel}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {showDiyHome ? (
         <DiyHome language={language} plan={plan} disabled={loading || disabled} onPromptSelect={onSuggestedPrompt} onOpenPlans={onOpenPlans} />
       ) : null}
 
-      <MessageList messages={messages} loading={loading} emptyStateText={showDiyHome ? null : undefined} />
+      <MessageList
+        messages={messages}
+        loading={loading}
+        emptyStateText={showDiyHome ? null : undefined}
+        onMessageAction={onMessageAction}
+      />
 
       <Composer
         onSend={onSend}

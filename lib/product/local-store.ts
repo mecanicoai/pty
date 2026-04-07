@@ -1,8 +1,10 @@
 import type { BusinessProfile, ProductStateSnapshot, ProWorkflowOutput, AppExperienceMode } from "@/types/product";
+import type { SubscriptionPlan } from "@/lib/billing/plans";
 import type { VehicleContext } from "@/types/chat";
 
 const STORAGE_KEYS = {
   selectedMode: "mecanico-selected-mode",
+  selectedPlan: "mecanico-selected-plan",
   businessProfile: "mecanico-business-profile",
   lastWorkflowOutput: "mecanico-last-workflow-output",
   lastVehicleContext: "mecanico-last-vehicle-context"
@@ -25,6 +27,35 @@ export function setSelectedMode(mode: AppExperienceMode) {
     return;
   }
   window.localStorage.setItem(STORAGE_KEYS.selectedMode, mode);
+}
+
+export function clearSelectedMode() {
+  if (!canUseStorage()) {
+    return;
+  }
+  window.localStorage.removeItem(STORAGE_KEYS.selectedMode);
+}
+
+export function getSelectedPlan(): SubscriptionPlan | null {
+  if (!canUseStorage()) {
+    return null;
+  }
+  const raw = window.localStorage.getItem(STORAGE_KEYS.selectedPlan);
+  return raw === "free" || raw === "basic" || raw === "pro" ? raw : null;
+}
+
+export function setSelectedPlan(plan: SubscriptionPlan) {
+  if (!canUseStorage()) {
+    return;
+  }
+  window.localStorage.setItem(STORAGE_KEYS.selectedPlan, plan);
+}
+
+export function clearSelectedPlan() {
+  if (!canUseStorage()) {
+    return;
+  }
+  window.localStorage.removeItem(STORAGE_KEYS.selectedPlan);
 }
 
 export function getBusinessProfile(): BusinessProfile | null {

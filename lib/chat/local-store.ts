@@ -1,5 +1,5 @@
 import type { UiMessage } from "@/components/chat/types";
-import type { AppExperienceMode } from "@/types/product";
+import type { AppExperienceMode, ProCaseRecord } from "@/types/product";
 import type { AppLanguage, VehicleContext } from "@/types/chat";
 
 export interface LocalChatSession {
@@ -11,6 +11,7 @@ export interface LocalChatSession {
   customerName?: string;
   customerPhone?: string;
   vehicleLabel?: string;
+  proCase?: ProCaseRecord | null;
   vehicle: VehicleContext | null;
   messages: UiMessage[];
   updatedAt: string;
@@ -23,6 +24,16 @@ function createId() {
   return `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export function createDefaultProCase(): ProCaseRecord {
+  return {
+    status: "new",
+    quoteVersion: 0,
+    pendingQuestions: [],
+    missingFields: [],
+    sentHistory: []
+  };
+}
+
 export function createLocalSession(language: AppLanguage, experienceMode: AppExperienceMode = "diy"): LocalChatSession {
   const now = new Date().toISOString();
   return {
@@ -31,6 +42,7 @@ export function createLocalSession(language: AppLanguage, experienceMode: AppExp
     language,
     experienceMode,
     pendingProAction: null,
+    proCase: experienceMode === "pro" ? createDefaultProCase() : null,
     vehicle: null,
     messages: [],
     updatedAt: now,
@@ -53,7 +65,17 @@ export function loadLocalSessions(): LocalChatSession[] {
     return Array.isArray(parsed)
       ? parsed.map((session) => ({
           ...session,
-          experienceMode: session.experienceMode === "pro" ? "pro" : "diy"
+          experienceMode: session.experienceMode === "pro" ? "pro" : "diy",
+          proCase:
+            session.experienceMode === "pro"
+              ? {
+                  ...createDefaultProCase(),
+                  ...(session.proCase ?? {}),
+                  pendingQuestions: Array.isArray(session.proCase?.pendingQuestions) ? session.proCase?.pendingQuestions ?? [] : [],
+                  missingFields: Array.isArray(session.proCase?.missingFields) ? session.proCase?.missingFields ?? [] : [],
+                  sentHistory: Array.isArray(session.proCase?.sentHistory) ? session.proCase?.sentHistory ?? [] : []
+                }
+              : null
         }))
       : [];
   } catch {

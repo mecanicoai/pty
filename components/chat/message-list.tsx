@@ -4,15 +4,21 @@ import { useEffect, useRef } from "react";
 
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
-import type { UiMessage } from "@/components/chat/types";
+import type { MessageActionEvent, UiMessage } from "@/components/chat/types";
 
 interface Props {
   messages: UiMessage[];
   loading: boolean;
   emptyStateText?: string | null;
+  onMessageAction?: (message: UiMessage, action: MessageActionEvent) => void;
 }
 
-export function MessageList({ messages, loading, emptyStateText = "Describe la falla y te ayudo a ubicar que revisar primero." }: Props) {
+export function MessageList({
+  messages,
+  loading,
+  emptyStateText = "Describe la falla y te ayudo a ubicar que revisar primero.",
+  onMessageAction
+}: Props) {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,7 +33,7 @@ export function MessageList({ messages, loading, emptyStateText = "Describe la f
       {messages.length ? (
         <div className="space-y-4 pb-3">
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble key={message.id} message={message} onAction={onMessageAction} />
           ))}
           {loading ? <TypingIndicator /> : null}
         </div>

@@ -44,7 +44,11 @@ function classifyChatError(error: unknown) {
 
   if (
     typeof maybeError?.message === "string" &&
-    (maybeError.message.includes("ASSISTANT_API_KEY") || maybeError.message.includes("OPENAI_API_KEY"))
+    (
+      maybeError.message.includes("ASSISTANT_API_KEY") ||
+      maybeError.message.includes("OPENAI_API_KEY") ||
+      maybeError.message.includes("ASSISTANT_MODEL_ID")
+    )
   ) {
     return new ApiError({
       status: 503,
@@ -160,7 +164,14 @@ export async function POST(request: NextRequest) {
         durationMs: Date.now() - startedAt,
         status: apiError.status,
         code: apiError.code,
-        message: apiError.message
+        message: apiError.message,
+        cause:
+          error instanceof Error
+            ? {
+                name: error.name,
+                message: error.message
+              }
+            : undefined
       })
     );
 

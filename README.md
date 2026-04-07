@@ -18,6 +18,7 @@ Spanish-first diagnostic and workflow app for mechanics and shop technicians.
 - Protected Mecanico instructions live in `lib/openai/mecanico-prompt.ts`.
 - The frontend never sends or exposes the system prompt.
 - The backend can read `ASSISTANT_MODEL_ID` from `.env.local`.
+- `ASSISTANT_MODEL_ID` must be set explicitly in each environment.
 - Chat requests require a signed install token.
 - Backend rate limiting is enforced per install.
 - When `REQUIRE_PLAY_INTEGRITY_LICENSE=true`, chat access requires a verified Google Play licensed install.

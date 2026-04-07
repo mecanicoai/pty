@@ -9,7 +9,7 @@ import {
 import { shouldUseWebSearch } from "@/lib/openai/should-use-web-search";
 import type { AppLanguage, AppMode, ChatAttachment, PersistedMessage, VehicleContext } from "@/types/chat";
 
-const DEFAULT_MODEL = process.env.ASSISTANT_MODEL_ID?.trim() || process.env.OPENAI_MODEL?.trim() || "assistant-latest";
+const CONFIGURED_MODEL = process.env.ASSISTANT_MODEL_ID?.trim() || process.env.OPENAI_MODEL?.trim() || "";
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 const openai = new OpenAI({
@@ -44,6 +44,44 @@ function tryParseJson(text: string) {
     }
     return JSON.parse(text.slice(firstBrace, lastBrace + 1)) as unknown;
   }
+}
+
+function truncateText(value: string, limit: number) {
+  const clean = value.replace(/\s+/g, " ").trim();
+  if (!clean) {
+    return "";
+  }
+  return clean.length > limit ? `${clean.slice(0, Math.max(0, limit - 1)).trim()}…` : clean;
+}
+
+function buildFallbackDiagnosticOutput(rawText: string, language: AppLanguage, usedWebSearch: boolean): DiagnosticStructuredOutput {
+  const summary =
+    truncateText(rawText, 500) ||
+    (language === "es"
+      ? "Ya tengo una lectura inicial, pero necesito afinarla con una revision mas ordenada."
+      : "I have an initial read, but I still need a more structured inspection to tighten it up.");
+
+  return {
+    language,
+    summary,
+    urgency: "caution",
+    likely_causes: [
+      language === "es" ? "Todavia falta confirmar la causa principal" : "The main cause still needs confirmation"
+    ],
+    possible_causes: [
+      language === "es" ? "Se necesita revisar el vehiculo en orden" : "The vehicle needs a structured inspection"
+    ],
+    safety_critical: [],
+    next_steps: [
+      language === "es"
+        ? "Confirma sintomas, condiciones en las que falla y una revision fisica antes de cerrar piezas o mano de obra."
+        : "Confirm symptoms, operating conditions, and inspect the vehicle before locking parts or labor."
+    ],
+    tools_needed: [language === "es" ? "Revision basica" : "Basic inspection"],
+    follow_up_questions: [],
+    customer_quote: null,
+    used_web_search: usedWebSearch
+  };
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -174,6 +212,9 @@ export async function runMecanicoService(input: MecanicoServiceInput): Promise<M
   if (!process.env.ASSISTANT_API_KEY && !process.env.OPENAI_API_KEY) {
     throw new Error("ASSISTANT_API_KEY no esta configurada.");
   }
+  if (!CONFIGURED_MODEL) {
+    throw new Error("ASSISTANT_MODEL_ID no esta configurada.");
+  }
 
   const attachments = normalizeAttachments(input.attachments ?? []);
   const useWebSearch = shouldUseWebSearch(input.message, input.mode, input.vehicle);
@@ -184,7 +225,7 @@ export async function runMecanicoService(input: MecanicoServiceInput): Promise<M
   }));
 
   const response = await openai.responses.create({
-    model: DEFAULT_MODEL,
+    model: CONFIGURED_MODEL,
     instructions: buildMecanicoSystemPrompt(input.language),
     input: [
       ...historyInput,
@@ -212,16 +253,29 @@ export async function runMecanicoService(input: MecanicoServiceInput): Promise<M
   } as any);
 
   const rawText = extractOutputText(response);
-  const parsedJson = asObject(tryParseJson(rawText));
-  const parsed = diagnosticResponseSchema.parse({
-    ...parsedJson,
-    used_web_search: useWebSearch
-  });
+  let parsed: DiagnosticStructuredOutput;
+
+  try {
+    const parsedJson = asObject(tryParseJson(rawText));
+    parsed = diagnosticResponseSchema.parse({
+      ...parsedJson,
+      used_web_search: useWebSearch
+    });
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        event: "assistant_structured_fallback",
+        reason: error instanceof Error ? error.message : "unknown",
+        hasRawText: Boolean(rawText.trim())
+      })
+    );
+    parsed = buildFallbackDiagnosticOutput(rawText, input.language, useWebSearch);
+  }
 
   return {
     parsed,
     usedWebSearch: useWebSearch,
-    model: DEFAULT_MODEL,
+    model: CONFIGURED_MODEL,
     raw: rawText
   };
 }

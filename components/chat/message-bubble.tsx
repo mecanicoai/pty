@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { buildDocumentShareText, buildWhatsAppShareUrl, openPrintableDocument } from "@/lib/product/pro-workflows";
-import type { UiMessage } from "@/components/chat/types";
+import type { MessageActionEvent, UiMessage } from "@/components/chat/types";
 
 function formatTime(value: string) {
   if (!value) {
@@ -44,7 +44,13 @@ function QuoteLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function MessageBubble({ message }: { message: UiMessage }) {
+export function MessageBubble({
+  message,
+  onAction
+}: {
+  message: UiMessage;
+  onAction?: (message: UiMessage, action: MessageActionEvent) => void;
+}) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
 
@@ -83,6 +89,10 @@ export function MessageBubble({ message }: { message: UiMessage }) {
     const text = buildDocumentShareText(title, business, draft);
 
     void navigator.clipboard.writeText(text);
+    onAction?.(message, {
+      kind: draft.documentType === "invoice" ? "invoice" : draft.documentType === "brief" ? "brief" : "quote",
+      channel: "copy"
+    });
   }
 
   function handleShareDocument() {
@@ -94,6 +104,10 @@ export function MessageBubble({ message }: { message: UiMessage }) {
     const text = buildDocumentShareText(title, business, draft);
 
     window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    onAction?.(message, {
+      kind: draft.documentType === "invoice" ? "invoice" : draft.documentType === "brief" ? "brief" : "quote",
+      channel: "whatsapp"
+    });
   }
 
   function handleShareQuestions() {
@@ -107,6 +121,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
     ].join("\n");
 
     window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    onAction?.(message, { kind: "questions", channel: "whatsapp" });
   }
 
   function handleShareReply() {
@@ -116,6 +131,7 @@ export function MessageBubble({ message }: { message: UiMessage }) {
 
     const text = message.workflowOutput.suggestedReply;
     window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    onAction?.(message, { kind: "reply", channel: "whatsapp" });
   }
 
   function handleCopyReply() {
@@ -125,6 +141,27 @@ export function MessageBubble({ message }: { message: UiMessage }) {
 
     const text = [message.workflowOutput.suggestedReply, `Siguiente paso: ${message.workflowOutput.nextStepExplanation}`].join("\n\n");
     void navigator.clipboard.writeText(text);
+    onAction?.(message, { kind: "reply", channel: "copy" });
+  }
+
+  function handleShareReminder() {
+    if (!message.workflowOutput) {
+      return;
+    }
+
+    const text = message.workflowOutput.unansweredQuestions.length
+      ? [
+          "Te sigo este mensaje para avanzar con tu caso.",
+          "Cuando puedas, mandame esto por favor:",
+          ...message.workflowOutput.unansweredQuestions.map((item, index) => `${index + 1}. ${item}`)
+        ].join("\n")
+      : [
+          "Te sigo este mensaje para avanzar con tu servicio.",
+          'Si quieres que avancemos, responde "Autorizo" o mandame la info que falte.'
+        ].join("\n");
+
+    window.open(buildWhatsAppShareUrl(text), "_blank", "noopener,noreferrer");
+    onAction?.(message, { kind: "reminder", channel: "whatsapp" });
   }
 
   return (
@@ -185,6 +222,13 @@ export function MessageBubble({ message }: { message: UiMessage }) {
                   >
                     Compartir preguntas
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleShareReminder}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    Recordar cliente
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -211,13 +255,22 @@ export function MessageBubble({ message }: { message: UiMessage }) {
                   >
                     WhatsApp
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleShareReminder}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    Recordar cliente
+                  </button>
                 </div>
               </div>
             </div>
 
             {message.documentPreview ? (
               <div className="rounded-[18px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)] p-3">
-                <p className="text-sm font-semibold text-[var(--wa-text-primary)]">Cotizacion preliminar</p>
+                <p className="text-sm font-semibold text-[var(--wa-text-primary)]">
+                  Cotizacion preliminar{message.documentPreview.version ? ` • v${message.documentPreview.version}` : ""}
+                </p>
                 <div className="mt-2 grid gap-1 text-[12px] text-[var(--wa-text-secondary)]">
                   <p>Cliente: {message.documentPreview.draft.customerName || "Pendiente"}</p>
                   <p>Vehiculo: {message.documentPreview.draft.vehicleLabel || "Pendiente"}</p>
@@ -271,7 +324,18 @@ export function MessageBubble({ message }: { message: UiMessage }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => openPrintableDocument(message.documentPreview!)}
+                    onClick={() => {
+                      openPrintableDocument(message.documentPreview!);
+                      onAction?.(message, {
+                        kind:
+                          message.documentPreview?.draft.documentType === "invoice"
+                            ? "invoice"
+                            : message.documentPreview?.draft.documentType === "brief"
+                              ? "brief"
+                              : "quote",
+                        channel: "pdf"
+                      });
+                    }}
                     className="rounded-full bg-[var(--taller-green)] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#138655]"
                   >
                     Descargar PDF
@@ -303,6 +367,65 @@ export function MessageBubble({ message }: { message: UiMessage }) {
                     Archivo: {name}
                   </p>
                 ))}
+              </div>
+            ) : null}
+            {message.documentPreview && !message.workflowOutput ? (
+              <div className="mt-3 rounded-[18px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)] p-3">
+                <p className="text-sm font-semibold text-[var(--wa-text-primary)]">
+                  {message.documentPreview.title}
+                  {message.documentPreview.version ? ` • v${message.documentPreview.version}` : ""}
+                </p>
+                <div className="mt-2 grid gap-1 text-[12px] text-[var(--wa-text-secondary)]">
+                  <p>Cliente: {message.documentPreview.draft.customerName || "Pendiente"}</p>
+                  <p>Vehiculo: {message.documentPreview.draft.vehicleLabel || "Pendiente"}</p>
+                  {message.documentPreview.draft.customerPhone ? <p>Telefono: {message.documentPreview.draft.customerPhone}</p> : null}
+                  {message.documentPreview.draft.amountLabel ? <p>Total: {message.documentPreview.draft.amountLabel}</p> : null}
+                </div>
+                {message.documentPreview.draft.notes ? (
+                  <div className="mt-3 space-y-1 text-[12px] leading-5 text-[var(--wa-text-secondary)]">
+                    {message.documentPreview.draft.notes
+                      .split("\n")
+                      .filter(Boolean)
+                      .slice(0, 6)
+                      .map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
+                  </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyDocument}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    Copiar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareDocument}
+                    className="rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-[11px] font-medium text-[var(--wa-text-secondary)] transition hover:bg-[var(--wa-control-bg-soft)] hover:text-[var(--wa-text-primary)]"
+                  >
+                    WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openPrintableDocument(message.documentPreview!);
+                      onAction?.(message, {
+                        kind:
+                          message.documentPreview?.draft.documentType === "invoice"
+                            ? "invoice"
+                            : message.documentPreview?.draft.documentType === "brief"
+                              ? "brief"
+                              : "quote",
+                        channel: "pdf"
+                      });
+                    }}
+                    className="rounded-full bg-[var(--taller-green)] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#138655]"
+                  >
+                    Descargar PDF
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>

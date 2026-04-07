@@ -1,4 +1,5 @@
 import type { PlanUsageSnapshot, SubscriptionPlan } from "@/lib/billing/plans";
+import type { ProCaseStatus } from "@/types/product";
 import type { AppLanguage, AppMode, ChatAttachment, DiagnosticResponse, VehicleContext } from "@/types/chat";
 
 export interface SessionSummary {
@@ -7,6 +8,15 @@ export interface SessionSummary {
   language: AppLanguage;
   mode: AppMode;
   updatedAt: string;
+  customerName?: string;
+  customerPhone?: string;
+  vehicleLabel?: string;
+  proStatus?: ProCaseStatus;
+  quoteVersion?: number;
+  pendingQuestionsCount?: number;
+  missingFields?: string[];
+  lastSentLabel?: string;
+  approvedAt?: string;
 }
 
 export interface ChatHistoryItem {

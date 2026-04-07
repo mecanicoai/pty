@@ -4,6 +4,28 @@ export type AppExperienceMode = "diy" | "pro";
 
 export type ProWorkspaceView = "client_message" | "chat" | "quote" | "invoice" | "brief";
 
+export type ProCaseStatus = "new" | "missing_info" | "waiting_customer" | "quoted" | "approved" | "in_progress" | "delivered";
+
+export interface ProSentRecord {
+  kind: "questions" | "reply" | "quote" | "invoice" | "brief" | "reminder";
+  channel: "copy" | "whatsapp" | "pdf" | "generated";
+  label: string;
+  at: string;
+}
+
+export interface ProCaseRecord {
+  status: ProCaseStatus;
+  quoteVersion: number;
+  pendingQuestions: string[];
+  missingFields: string[];
+  approvedAt?: string;
+  lastQuoteAt?: string;
+  lastQuoteNumber?: string;
+  lastSentAt?: string;
+  lastSentLabel?: string;
+  sentHistory: ProSentRecord[];
+}
+
 export interface BusinessProfile {
   business_name: string;
   mechanic_name: string;
