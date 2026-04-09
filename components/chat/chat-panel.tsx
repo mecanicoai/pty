@@ -57,6 +57,7 @@ interface Props {
   onOpenPlans: () => void;
   onLockedFeature: (feature: "voice" | "attachments") => void;
   onOpenMenu: () => void;
+  onProStarterAction?: (action: "triage" | "screenshot" | "quote" | "invoice" | "maestro") => void;
   onMessageAction?: (message: UiMessage, action: MessageActionEvent) => void;
 }
 
@@ -84,6 +85,7 @@ export function ChatPanel({
   onOpenPlans,
   onLockedFeature,
   onOpenMenu,
+  onProStarterAction,
   onMessageAction
 }: Props) {
   const labels =
@@ -317,6 +319,44 @@ export function ChatPanel({
 
       {showDiyHome ? (
         <DiyHome language={language} plan={plan} disabled={loading || disabled} onPromptSelect={onSuggestedPrompt} onOpenPlans={onOpenPlans} />
+      ) : null}
+
+      {mode === "pro" && messages.length === 1 && messages[0]?.createdAt === "" && onProStarterAction ? (
+        <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {[
+              {
+                id: "triage" as const,
+                label: language === "es" ? "Nuevo ingreso" : "New intake"
+              },
+              {
+                id: "screenshot" as const,
+                label: language === "es" ? "Subir captura" : "Upload screenshot"
+              },
+              {
+                id: "quote" as const,
+                label: language === "es" ? "Hacer cotizacion" : "Make quote"
+              },
+              {
+                id: "invoice" as const,
+                label: language === "es" ? "Crear factura" : "Create invoice"
+              },
+              {
+                id: "maestro" as const,
+                label: language === "es" ? "Hablar con el Maestro" : "Talk to Master"
+              }
+            ].map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                onClick={() => onProStarterAction(action.id)}
+                className="shrink-0 rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-4 py-2 text-sm font-medium text-[var(--wa-control-text)] shadow-sm transition hover:bg-[var(--wa-control-bg-soft)]"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       <MessageList

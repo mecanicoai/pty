@@ -113,6 +113,16 @@ function getWelcomeMessage(language: AppLanguage, experienceMode: AppExperienceM
     : "Tell me the year, make, model, and the detailed issue so I can help you understand what to check first.";
 }
 
+function getEntryWelcomeMessage(language: AppLanguage, experienceMode: AppExperienceMode, plan: SubscriptionPlan) {
+  if (experienceMode === "pro") {
+    return language === "es"
+      ? "Soy tu asistente del taller. Arranca con un ingreso, una captura o una cotizacion."
+      : "I am your shop assistant. Start with an intake, a screenshot, or a quote.";
+  }
+
+  return getWelcomeMessage(language, experienceMode, plan);
+}
+
 function getPlanUsageLabel(language: AppLanguage, plan: SubscriptionPlan, usage: PlanUsageSnapshot) {
   if (language === "en") {
     if (plan === "free") {
@@ -336,6 +346,24 @@ function getManualPipelineStageFromMessage(message: string): ProPipelineStage | 
 
 function isPaidMessage(message: string) {
   return /\b(pagado|pagada|paid|cobrado|cobrada)\b/i.test(message);
+}
+
+type DocumentIntent = "quote" | "invoice" | "brief";
+
+function getDocumentIntent(message: string): DocumentIntent | null {
+  const value = message.toLowerCase();
+
+  if (/\b(cotizacion|cotiza|cotizar|quote|estimate|estimado|presupuesto)\b/i.test(value)) {
+    return "quote";
+  }
+  if (/\b(factura|invoice|cobro|bill)\b/i.test(value)) {
+    return "invoice";
+  }
+  if (/\b(brief|memo interno|brief interno|internal brief|job brief)\b/i.test(value)) {
+    return "brief";
+  }
+
+  return null;
 }
 
 function buildCustomerReminderText(session: LocalChatSession, workflow: ProWorkflowOutput | null) {
@@ -618,7 +646,7 @@ export function ChatLayout() {
       {
         id: `welcome-${currentChatExperienceMode}`,
         role: "assistant",
-        text: getWelcomeMessage(language, currentChatExperienceMode, plan),
+        text: getEntryWelcomeMessage(language, currentChatExperienceMode, plan),
         createdAt: ""
       }
     ];
@@ -1249,6 +1277,8 @@ export function ChatLayout() {
 
     const existingMessages = targetSession.messages;
     const latestWorkflowBefore = getLatestWorkflowFromSession(targetSession);
+    const documentIntent =
+      targetSession.experienceMode === "pro" && businessProfile ? getDocumentIntent(messageText) : null;
     const isCollectingTriage =
       targetSession.experienceMode === "pro" &&
       targetSession.pendingProAction === "triage_collect" &&
@@ -1269,6 +1299,68 @@ export function ChatLayout() {
     setError(null);
 
     try {
+      if (documentIntent && businessProfile && latestWorkflowBefore && !payload.attachments.length && !options?.forceWorkflowMode) {
+        const assistantCreatedAt = new Date().toISOString();
+        const documentPreview =
+          documentIntent === "invoice"
+            ? {
+                title: "Factura",
+                draft: createInvoiceDocumentDraft(businessProfile, latestWorkflowBefore, targetSession.vehicle),
+                business: businessProfile
+              }
+            : documentIntent === "brief"
+              ? {
+                  title: "Brief interno",
+                  draft: createBriefDocumentDraft(latestWorkflowBefore),
+                  business: businessProfile
+                }
+              : {
+                  title: "Cotizacion",
+                  draft: createQuoteDocumentDraft(businessProfile, latestWorkflowBefore, targetSession.vehicle),
+                  business: businessProfile,
+                  version: targetSession.proCase?.quoteVersion || undefined
+                };
+
+        updateSessionById(targetSessionId, (session) => ({
+          ...session,
+          messages: [
+            ...session.messages,
+            {
+              id: `assistant-${Date.now()}`,
+              role: "assistant",
+              text:
+                documentIntent === "invoice"
+                  ? language === "es"
+                    ? "Listo. Aqui va la factura en este hilo."
+                    : "Done. Here is the invoice in this thread."
+                  : documentIntent === "brief"
+                    ? language === "es"
+                      ? "Listo. Aqui va el brief interno en este hilo."
+                      : "Done. Here is the internal brief in this thread."
+                    : language === "es"
+                      ? "Listo. Aqui va la cotizacion en este hilo."
+                      : "Done. Here is the quote in this thread.",
+              documentPreview,
+              createdAt: assistantCreatedAt
+            }
+          ],
+          updatedAt: assistantCreatedAt,
+          proCase:
+            documentIntent === "quote" && session.experienceMode === "pro"
+              ? {
+                  ...(session.proCase ?? getDefaultProCaseRecord()),
+                  sentHistory: appendSentRecord((session.proCase ?? getDefaultProCaseRecord()).sentHistory, {
+                    kind: "quote",
+                    channel: "generated",
+                    label: language === "es" ? "Cotizacion abierta desde chat" : "Quote opened from chat",
+                    at: assistantCreatedAt
+                  })
+                }
+              : session.proCase
+        }));
+        return;
+      }
+
       if (isCollectingTriage && triageCheck && triageCheck.missing.length) {
         const reminder =
           language === "es"
@@ -1356,7 +1448,11 @@ export function ChatLayout() {
           !!options?.forceWorkflowMode ||
           targetSession.experienceMode === "pro" &&
           !!businessProfile &&
-          ((targetSession.pendingProAction === "triage_quote" || targetSession.pendingProAction === "triage_collect") || !!latestWorkflowBefore);
+          (
+            (targetSession.pendingProAction === "triage_quote" || targetSession.pendingProAction === "triage_collect") ||
+            !!latestWorkflowBefore ||
+            !!documentIntent
+          );
       const response = await sendChatRequest({
         message: isWorkflowMode
           ? [
@@ -1403,18 +1499,42 @@ export function ChatLayout() {
               version: nextQuoteVersion
             }
           : null;
+      const requestedDocumentPreview =
+        nextWorkflow && businessProfile && documentIntent
+          ? documentIntent === "invoice"
+            ? {
+                title: "Factura",
+                draft: createInvoiceDocumentDraft(businessProfile, nextWorkflow, targetSession.vehicle),
+                business: businessProfile
+              }
+            : documentIntent === "brief"
+              ? {
+                  title: "Brief interno",
+                  draft: createBriefDocumentDraft(nextWorkflow),
+                  business: businessProfile
+                }
+              : nextQuotePreview
+          : null;
       const assistantMessage: UiMessage = nextWorkflow && businessProfile
         ? {
             id: `assistant-${Date.now()}`,
             role: "assistant",
             text:
-              language === "es"
-                ? latestWorkflowBefore
-                  ? "Listo. Ya actualice el memo interno y la cotizacion preliminar con la nueva info."
-                  : "Listo. Primero te dejo el memo interno y abajo la cotizacion preliminar para el cliente."
-                : "First I left the internal shop memo, then the preliminary customer quote in this chat.",
-              workflowOutput: nextWorkflow,
-              documentPreview: nextQuotePreview ?? undefined,
+              documentIntent === "invoice"
+                ? language === "es"
+                  ? "Listo. Ya actualice el caso y te dejo la factura en este hilo."
+                  : "Done. I updated the case and left the invoice in this thread."
+                : documentIntent === "brief"
+                  ? language === "es"
+                    ? "Listo. Ya actualice el caso y te dejo el brief interno en este hilo."
+                    : "Done. I updated the case and left the internal brief in this thread."
+                  : language === "es"
+                    ? latestWorkflowBefore
+                      ? "Listo. Ya actualice el memo interno y la cotizacion preliminar con la nueva info."
+                      : "Listo. Primero te dejo el memo interno y abajo la cotizacion preliminar para el cliente."
+                    : "First I left the internal shop memo, then the preliminary customer quote in this chat.",
+            workflowOutput: nextWorkflow,
+            documentPreview: requestedDocumentPreview ?? nextQuotePreview ?? undefined,
             usedWebSearch: response.used_web_search,
             createdAt: assistantCreatedAt
           }
@@ -1569,7 +1689,7 @@ export function ChatLayout() {
     screenshotInputRef.current?.click();
   }
 
-  function handleProActionInChat(action: "triage" | "quote" | "invoice" | "brief" | "screenshot") {
+  function handleProActionInChat(action: "triage" | "quote" | "invoice" | "brief" | "screenshot" | "maestro") {
     if (!activeSession) {
       return;
     }
@@ -1586,6 +1706,11 @@ export function ChatLayout() {
 
     if (action === "screenshot") {
       handleScreenshotAction();
+      return;
+    }
+
+    if (action === "maestro") {
+      handleMasterMechanicAction();
       return;
     }
 
@@ -2219,6 +2344,7 @@ export function ChatLayout() {
               onOpenPlans={() => setPricingOpen(true)}
               onLockedFeature={handleLockedFeature}
               onOpenMenu={() => setMenuOpen(true)}
+              onProStarterAction={(action) => handleProActionInChat(action)}
               onMessageAction={handleMessageAction}
             />
 

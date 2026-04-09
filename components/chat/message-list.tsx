@@ -20,12 +20,21 @@ export function MessageList({
   onMessageAction
 }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!listRef.current) {
+    if (!listRef.current || !endRef.current) {
       return;
     }
-    listRef.current.scrollTop = listRef.current.scrollHeight;
+
+    const frame = window.requestAnimationFrame(() => {
+      endRef.current?.scrollIntoView({
+        block: "end",
+        behavior: loading ? "auto" : "smooth"
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [messages, loading]);
 
   return (
@@ -36,6 +45,7 @@ export function MessageList({
             <MessageBubble key={message.id} message={message} onAction={onMessageAction} />
           ))}
           {loading ? <TypingIndicator /> : null}
+          <div ref={endRef} className="h-px w-full" />
         </div>
       ) : emptyStateText ? (
         <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--wa-text-secondary)]">
