@@ -10,6 +10,7 @@ import { shouldUseWebSearch } from "@/lib/openai/should-use-web-search";
 import type { AppLanguage, AppMode, ChatAttachment, PersistedMessage, VehicleContext } from "@/types/chat";
 
 const CONFIGURED_MODEL = process.env.ASSISTANT_MODEL_ID?.trim() || process.env.OPENAI_MODEL?.trim() || "";
+const DIY_MODEL = process.env.ASSISTANT_DIY_MODEL_ID?.trim() || process.env.OPENAI_DIY_MODEL?.trim() || "";
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 const openai = new OpenAI({
@@ -199,6 +200,7 @@ export interface MecanicoServiceInput {
   vehicle: VehicleContext | null;
   recentMessages: PersistedMessage[];
   attachments?: ChatAttachment[];
+  modelOverride?: string;
 }
 
 export interface MecanicoServiceOutput {
@@ -208,11 +210,88 @@ export interface MecanicoServiceOutput {
   raw: string;
 }
 
+function resolveModel(input: { modelOverride?: string; mode?: AppMode; useCase?: "chat" | "ocr" }) {
+  const normalizedOverride = input.modelOverride?.trim();
+  if (normalizedOverride) {
+    return normalizedOverride;
+  }
+
+  if (input.useCase === "ocr") {
+    return CONFIGURED_MODEL;
+  }
+
+  if (input.mode === "diy" && DIY_MODEL) {
+    return DIY_MODEL;
+  }
+
+  return CONFIGURED_MODEL;
+}
+
+function truncateExtractedText(value: string, limit: number) {
+  const clean = value.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (!clean) {
+    return "";
+  }
+  return clean.length > limit ? `${clean.slice(0, Math.max(0, limit - 1)).trim()}…` : clean;
+}
+
+export async function extractTextFromImageAttachments(input: {
+  attachments: ChatAttachment[];
+  language: AppLanguage;
+  modelOverride?: string;
+}) {
+  if (!process.env.ASSISTANT_API_KEY && !process.env.OPENAI_API_KEY) {
+    throw new Error("ASSISTANT_API_KEY no esta configurada.");
+  }
+  const resolvedModel = resolveModel({
+    modelOverride: input.modelOverride,
+    useCase: "ocr"
+  });
+  if (!resolvedModel) {
+    throw new Error("ASSISTANT_MODEL_ID no esta configurada.");
+  }
+
+  const imageAttachments = normalizeAttachments(input.attachments.filter((attachment) => attachment.kind === "image"));
+  if (!imageAttachments.length) {
+    return "";
+  }
+
+  const response = await openai.responses.create({
+    model: resolvedModel,
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text:
+              input.language === "es"
+                ? "Extrae el texto visible de estas capturas de pantalla. Devuelve solo el texto limpio, en orden de lectura, sin explicacion."
+                : "Extract the visible text from these screenshots. Return only the cleaned text in reading order with no explanation."
+          },
+          ...imageAttachments.map((attachment) => ({
+            type: "input_image",
+            image_url: `data:${attachment.mimeType};base64,${attachment.dataBase64}`
+          }))
+        ]
+      }
+    ],
+    temperature: 0
+  } as any);
+
+  return truncateExtractedText(extractOutputText(response), 2500);
+}
+
 export async function runMecanicoService(input: MecanicoServiceInput): Promise<MecanicoServiceOutput> {
   if (!process.env.ASSISTANT_API_KEY && !process.env.OPENAI_API_KEY) {
     throw new Error("ASSISTANT_API_KEY no esta configurada.");
   }
-  if (!CONFIGURED_MODEL) {
+  const resolvedModel = resolveModel({
+    modelOverride: input.modelOverride,
+    mode: input.mode,
+    useCase: "chat"
+  });
+  if (!resolvedModel) {
     throw new Error("ASSISTANT_MODEL_ID no esta configurada.");
   }
 
@@ -225,7 +304,7 @@ export async function runMecanicoService(input: MecanicoServiceInput): Promise<M
   }));
 
   const response = await openai.responses.create({
-    model: CONFIGURED_MODEL,
+    model: resolvedModel,
     instructions: buildMecanicoSystemPrompt(input.language),
     input: [
       ...historyInput,
@@ -275,7 +354,7 @@ export async function runMecanicoService(input: MecanicoServiceInput): Promise<M
   return {
     parsed,
     usedWebSearch: useWebSearch,
-    model: CONFIGURED_MODEL,
+    model: resolvedModel,
     raw: rawText
   };
 }

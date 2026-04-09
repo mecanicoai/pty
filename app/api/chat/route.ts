@@ -11,6 +11,15 @@ import { chatRequestSchema } from "@/lib/validation/chat";
 
 export const runtime = "nodejs";
 
+function getLocalModelOverride(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return undefined;
+  }
+
+  const value = request.headers.get("x-local-model-override")?.trim() || "";
+  return value ? value.slice(0, 120) : undefined;
+}
+
 function classifyChatError(error: unknown) {
   if (error instanceof ZodError) {
     return new ApiError({
@@ -106,7 +115,8 @@ export async function POST(request: NextRequest) {
       mode: parsed.mode,
       vehicle: parsed.vehicle ?? null,
       recentMessages,
-      attachments: parsed.attachments
+      attachments: parsed.attachments,
+      modelOverride: getLocalModelOverride(request)
     });
     const nextUsage = recordPlanUsage(auth.plan, auth.usage);
     const remainingSeconds = Math.max(auth.exp - Math.floor(Date.now() / 1000), 60 * 30);

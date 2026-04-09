@@ -192,47 +192,49 @@ export function ChatPanel({
       </header>
 
       {mode === "pro" ? (
-        <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <div className="inline-flex max-w-full shrink-0 items-center rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-sm font-medium text-[var(--wa-control-text)] shadow-sm">
-              <span className="truncate">{threadTitle}</span>
+        <div className="sticky top-[60px] z-[19] border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] shadow-sm">
+          <div className="px-3 py-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <div className="inline-flex max-w-full shrink-0 items-center rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-3 py-1.5 text-sm font-medium text-[var(--wa-control-text)] shadow-sm">
+                <span className="truncate">{threadTitle}</span>
+              </div>
+              {proActions
+                .filter((action) => action.id === "history" || action.id === "new-client")
+                .map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={action.onClick}
+                    className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
+                      action.id === "history"
+                        ? "border border-[#d6b96a] bg-[#fff2c8] text-[#7a5800] hover:bg-[#ffe8a2]"
+                        : "border border-[#9fd1b9] bg-[#dff7ec] text-[#166746] hover:bg-[#c6f0dd]"
+                    }`}
+                  >
+                    {action.label}
+                  </button>
+                ))}
             </div>
-            {proActions
-              .filter((action) => action.id === "history" || action.id === "new-client")
-              .map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  onClick={action.onClick}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
-                    action.id === "history"
-                      ? "border border-[#d6b96a] bg-[#fff2c8] text-[#7a5800] hover:bg-[#ffe8a2]"
-                      : "border border-[#9fd1b9] bg-[#dff7ec] text-[#166746] hover:bg-[#c6f0dd]"
-                  }`}
-                >
-                  {action.label}
-                </button>
-              ))}
           </div>
-        </div>
-      ) : null}
 
-      {mode === "pro" && proActions.filter((action) => action.id !== "history" && action.id !== "new-client").length ? (
-        <div className="border-b border-[var(--wa-divider)] bg-[var(--wa-bg-sidebar)] px-3 py-2">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {proActions
-              .filter((action) => action.id !== "history" && action.id !== "new-client")
-              .map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                onClick={action.onClick}
-                className="shrink-0 rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-4 py-2 text-sm font-medium text-[var(--wa-control-text)] shadow-sm transition hover:bg-[var(--wa-control-bg-soft)]"
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
+          {proActions.filter((action) => action.id !== "history" && action.id !== "new-client").length ? (
+            <div className="border-t border-[var(--wa-divider)] px-3 py-2">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {proActions
+                  .filter((action) => action.id !== "history" && action.id !== "new-client")
+                  .map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={action.onClick}
+                      className="shrink-0 rounded-full border border-[var(--wa-divider)] bg-[var(--wa-control-bg)] px-4 py-2 text-sm font-medium text-[var(--wa-control-text)] shadow-sm transition hover:bg-[var(--wa-control-bg-soft)]"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

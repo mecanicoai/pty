@@ -5,6 +5,7 @@ import type { VehicleContext } from "@/types/chat";
 const STORAGE_KEYS = {
   selectedMode: "mecanico-selected-mode",
   selectedPlan: "mecanico-selected-plan",
+  localModelOverride: "mecanico-local-model-override",
   businessProfile: "mecanico-business-profile",
   lastWorkflowOutput: "mecanico-last-workflow-output",
   lastVehicleContext: "mecanico-last-vehicle-context"
@@ -56,6 +57,32 @@ export function clearSelectedPlan() {
     return;
   }
   window.localStorage.removeItem(STORAGE_KEYS.selectedPlan);
+}
+
+export function getLocalModelOverride() {
+  if (!canUseStorage()) {
+    return "";
+  }
+  return window.localStorage.getItem(STORAGE_KEYS.localModelOverride) ?? "";
+}
+
+export function setLocalModelOverride(value: string) {
+  if (!canUseStorage()) {
+    return;
+  }
+  const clean = value.trim();
+  if (!clean) {
+    window.localStorage.removeItem(STORAGE_KEYS.localModelOverride);
+    return;
+  }
+  window.localStorage.setItem(STORAGE_KEYS.localModelOverride, clean);
+}
+
+export function clearLocalModelOverride() {
+  if (!canUseStorage()) {
+    return;
+  }
+  window.localStorage.removeItem(STORAGE_KEYS.localModelOverride);
 }
 
 export function getBusinessProfile(): BusinessProfile | null {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PricingSheet } from "@/components/billing/pricing-sheet";
 import { ChatPanel } from "@/components/chat/chat-panel";
@@ -13,6 +13,7 @@ import { SessionList } from "@/components/sidebar/session-list";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
 import { createEmptyUsageSnapshot, PLAN_DEFINITIONS, type PlanUsageSnapshot, type SubscriptionPlan } from "@/lib/billing/plans";
 import {
   activateTestPlan,
@@ -31,13 +32,16 @@ import {
   getBusinessProfile,
   getLastVehicleContext,
   getLastWorkflowOutput,
+  getLocalModelOverride,
   getSelectedMode,
   getSelectedPlan,
   setBusinessProfile,
   setLastVehicleContext as persistLastVehicleContext,
   setLastWorkflowOutput,
+  setLocalModelOverride,
   setSelectedMode,
   setSelectedPlan,
+  clearLocalModelOverride,
   clearSelectedMode,
   clearSelectedPlan
 } from "@/lib/product/local-store";
@@ -68,6 +72,21 @@ const PREF_KEYS = {
   language: "mecanico-ui-language",
   activeSessionId: "mecanico-active-session-id"
 } as const;
+
+const LOCAL_MODEL_OPTIONS = [
+  { value: "", label: "Default (.env.local)" },
+  { value: "gpt-5.4-mini-2026-03-17", label: "gpt-5.4-mini-2026-03-17" },
+  { value: "gpt-5-mini", label: "gpt-5-mini" }
+] as const;
+
+function canUseLocalModelSwitcher() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
 
 function getDefaultSessionTitle(language: AppLanguage, experienceMode: AppExperienceMode) {
   if (experienceMode === "pro") {
@@ -424,7 +443,7 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, "");
 }
 
-function getMissingLeadFields(draft: TriageLeadDraft) {
+function getMissingLeadFields(draft: TriageLeadDraft, requireMessage = true) {
   const missing: string[] = [];
 
   if (!draft.customerName.trim()) {
@@ -436,19 +455,41 @@ function getMissingLeadFields(draft: TriageLeadDraft) {
   if (!draft.customerPhone.trim()) {
     missing.push("Telefono");
   }
-  if (!draft.customerMessage.trim()) {
+  if (requireMessage && !draft.customerMessage.trim()) {
     missing.push("Mensaje");
   }
 
   return missing;
 }
 
-function buildLeadMessage(draft: TriageLeadDraft) {
+function buildLeadMessage(draft: TriageLeadDraft, options?: { hasAttachments?: boolean; language?: AppLanguage }) {
+  const hasAttachments = Boolean(options?.hasAttachments);
+  const language = options?.language ?? "es";
+  const messageText =
+    draft.customerMessage.trim() ||
+    (hasAttachments ? (language === "es" ? "Captura del cliente adjunta." : "Customer screenshot attached.") : "");
+
   return [
     `Cliente: ${draft.customerName.trim()}`,
     `Vehiculo: ${draft.vehicleLabel.trim()}`,
     `Telefono: ${draft.customerPhone.trim()}`,
-    `Mensaje: ${draft.customerMessage.trim()}`
+    messageText ? `Mensaje: ${messageText}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function appendExtractedTextToLeadMessage(message: string, extractedText: string, language: AppLanguage) {
+  const clean = extractedText.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (!clean) {
+    return message;
+  }
+
+  return [
+    message,
+    "",
+    language === "es" ? "Texto extraido de la captura:" : "Extracted screenshot text:",
+    clean
   ].join("\n");
 }
 
@@ -531,6 +572,9 @@ export function ChatLayout() {
   const [importLeadSessionId, setImportLeadSessionId] = useState<string | null>(null);
   const [pendingImportedLead, setPendingImportedLead] = useState<PendingImportedLead | null>(null);
   const [pendingSharedIntent, setPendingSharedIntent] = useState<SharedIntentPayload | null>(null);
+  const [localModelSwitcherEnabled, setLocalModelSwitcherEnabled] = useState(false);
+  const [localModelOverride, setLocalModelOverrideState] = useState("");
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
 
   const currentChatExperienceMode: AppExperienceMode = selectedMode === "pro" ? "pro" : "diy";
   const visibleSessions = useMemo(
@@ -599,6 +643,8 @@ export function ChatLayout() {
     setLanguage(nextLanguage);
     setPlan(persistedSelectedPlan ?? getStoredPlan());
     setUsage(getStoredUsage());
+    setLocalModelSwitcherEnabled(canUseLocalModelSwitcher());
+    setLocalModelOverrideState(getLocalModelOverride());
     setSelectedModeState(persistedMode ?? (persistedSelectedPlan ? getModeForPlan(persistedSelectedPlan) : null));
     setBusinessProfileState(getBusinessProfile());
     setWorkflowOutput(getLastWorkflowOutput());
@@ -919,7 +965,7 @@ export function ChatLayout() {
       return;
     }
 
-    const missing = getMissingLeadFields(pendingImportedLead.draft);
+    const missing = getMissingLeadFields(pendingImportedLead.draft, pendingImportedLead.attachments.length === 0);
     if (missing.length) {
       updateSessionById(pendingImportedLead.targetSessionId, (session) => ({
         ...session,
@@ -1057,7 +1103,8 @@ export function ChatLayout() {
       requestJson<ChatResponse>("/api/chat", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          ...(localModelSwitcherEnabled && localModelOverride ? { "x-local-model-override": localModelOverride } : {})
         },
         body: JSON.stringify(requestBody)
       });
@@ -1078,6 +1125,39 @@ export function ChatLayout() {
     }
   }
 
+  async function extractAttachmentText(input: { attachments: ChatAttachment[]; language: AppLanguage }) {
+    if (!input.attachments.some((attachment) => attachment.kind === "image")) {
+      return "";
+    }
+
+    const runRequest = async (token: string) =>
+      requestJson<{ text?: string }>("/api/intake/extract", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(localModelSwitcherEnabled && localModelOverride ? { "x-local-model-override": localModelOverride } : {})
+        },
+        body: JSON.stringify(input)
+      });
+
+    let token = await ensureInstallToken();
+
+    try {
+      const response = await runRequest(token);
+      return response.text?.trim() || "";
+    } catch (err) {
+      const status = (err as { status?: number } | undefined)?.status;
+      if (status !== 401) {
+        return "";
+      }
+
+      clearStoredInstallSession();
+      token = await ensureInstallToken();
+      const response = await runRequest(token);
+      return response.text?.trim() || "";
+    }
+  }
+
   async function submitLeadToWorkflow(draft: TriageLeadDraft, attachments: ChatAttachment[], sessionId?: string | null) {
     const targetSessionId = sessionId ?? activeSessionId;
     const targetSession = sessions.find((session) => session.id === targetSessionId) ?? null;
@@ -1092,8 +1172,18 @@ export function ChatLayout() {
       customerMessage: draft.customerMessage.trim()
     };
 
-    if (getMissingLeadFields(nextDraft).length) {
-      setError(language === "es" ? "Completa cliente, vehiculo, telefono y mensaje." : "Complete customer, vehicle, phone, and message.");
+    const requireMessage = attachments.length === 0;
+
+    if (getMissingLeadFields(nextDraft, requireMessage).length) {
+      setError(
+        requireMessage
+          ? language === "es"
+            ? "Completa cliente, vehiculo, telefono y mensaje."
+            : "Complete customer, vehicle, phone, and message."
+          : language === "es"
+            ? "Completa cliente, vehiculo y telefono."
+            : "Complete customer, vehicle, and phone."
+      );
       return;
     }
 
@@ -1114,9 +1204,20 @@ export function ChatLayout() {
 
     setError(null);
 
+    const extractedText = attachments.some((attachment) => attachment.kind === "image")
+      ? await extractAttachmentText({ attachments, language })
+      : "";
+
     await handleSend(
       {
-        message: buildLeadMessage(nextDraft),
+        message: appendExtractedTextToLeadMessage(
+          buildLeadMessage(nextDraft, {
+            hasAttachments: attachments.length > 0,
+            language
+          }),
+          extractedText,
+          language
+        ),
         attachments
       },
       {
@@ -1426,7 +1527,7 @@ export function ChatLayout() {
       )
     }));
     await submitLeadToWorkflow(importLeadDraft, importLeadAttachments, importLeadSessionId);
-    if (!getMissingLeadFields(importLeadDraft).length) {
+    if (!getMissingLeadFields(importLeadDraft, importLeadAttachments.length === 0).length) {
       setImportLeadModalOpen(false);
       setImportLeadAttachments([]);
       setImportLeadSourceApp(undefined);
@@ -1434,7 +1535,23 @@ export function ChatLayout() {
     }
   }
 
-  function handleProActionInChat(action: "triage" | "quote" | "invoice" | "brief") {
+  async function handleOpenScreenshotIntake(file: File | null) {
+    if (!file || !activeSession) {
+      return;
+    }
+
+    const attachments = await buildScreenshotAttachment(file);
+    setTriageDraft({
+      customerName: activeSession.customerName || activeWorkflow?.customerName || "",
+      vehicleLabel: activeSession.vehicleLabel || activeWorkflow?.vehicleLabel || "",
+      customerPhone: activeSession.customerPhone || activeWorkflow?.customerPhone || "",
+      customerMessage: ""
+    });
+    setTriageAttachments(attachments);
+    setTriageModalOpen(true);
+  }
+
+  function handleScreenshotAction() {
     if (!activeSession) {
       return;
     }
@@ -1446,6 +1563,29 @@ export function ChatLayout() {
 
     if (!isProUnlocked) {
       setPricingOpen(true);
+      return;
+    }
+
+    screenshotInputRef.current?.click();
+  }
+
+  function handleProActionInChat(action: "triage" | "quote" | "invoice" | "brief" | "screenshot") {
+    if (!activeSession) {
+      return;
+    }
+
+    if (!businessProfile) {
+      setBusinessModalOpen(true);
+      return;
+    }
+
+    if (!isProUnlocked) {
+      setPricingOpen(true);
+      return;
+    }
+
+    if (action === "screenshot") {
+      handleScreenshotAction();
       return;
     }
 
@@ -1872,7 +2012,7 @@ export function ChatLayout() {
 
   const usageLabel = getPlanUsageLabel(language, plan, usage);
   const isProUnlocked = plan === "pro";
-  const importMissingFields = getMissingLeadFields(importLeadDraft);
+  const importMissingFields = getMissingLeadFields(importLeadDraft, importLeadAttachments.length === 0);
   const shouldShowProBanner = selectedMode === "pro" && activeSession && activeProCase;
   const proThreadBanner =
     shouldShowProBanner && activeSession && activeProCase
@@ -1973,6 +2113,11 @@ export function ChatLayout() {
                   ? "New intake"
                   : "Refresh triage",
             onClick: () => handleProActionInChat("triage")
+          },
+          {
+            id: "screenshot",
+            label: language === "es" ? "Subir captura" : "Upload screenshot",
+            onClick: () => handleProActionInChat("screenshot")
           },
           {
             id: "history",
@@ -2245,6 +2390,57 @@ export function ChatLayout() {
               <Button type="button" variant="secondary" onClick={() => setPricingOpen(true)}>
                 {language === "es" ? "Planes" : "Plans"}
               </Button>
+              {localModelSwitcherEnabled ? (
+                <div className="col-span-2 rounded-[20px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)] px-3 py-3">
+                  <p className="mb-2 text-xs uppercase tracking-wide text-[var(--wa-text-secondary)]">
+                    {language === "es" ? "Modelo local" : "Local model"}
+                  </p>
+                  <div className="space-y-2">
+                    <Select
+                      value={LOCAL_MODEL_OPTIONS.some((option) => option.value === localModelOverride) ? localModelOverride : "__custom__"}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        if (nextValue === "__custom__") {
+                          return;
+                        }
+                        setLocalModelOverrideState(nextValue);
+                        setLocalModelOverride(nextValue);
+                      }}
+                    >
+                      {LOCAL_MODEL_OPTIONS.map((option) => (
+                        <option key={option.value || "default"} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                      <option value="__custom__">{language === "es" ? "Personalizado" : "Custom"}</option>
+                    </Select>
+                    <Input
+                      placeholder={language === "es" ? "Modelo personalizado" : "Custom model"}
+                      value={LOCAL_MODEL_OPTIONS.some((option) => option.value === localModelOverride) ? "" : localModelOverride}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setLocalModelOverrideState(nextValue);
+                        setLocalModelOverride(nextValue);
+                      }}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setLocalModelOverrideState("");
+                          clearLocalModelOverride();
+                        }}
+                      >
+                        {language === "es" ? "Usar default" : "Use default"}
+                      </Button>
+                      <p className="text-xs text-[var(--wa-text-secondary)]">
+                        {localModelOverride || (language === "es" ? "Tomando .env.local" : "Using .env.local")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <Button
                 type="button"
                 variant="secondary"
@@ -2332,18 +2528,26 @@ export function ChatLayout() {
               onChange={(event) => setImportLeadDraft((prev) => ({ ...prev, customerPhone: event.target.value }))}
             />
           ) : null}
-          {importMissingFields.includes("Mensaje") ? (
+          {importMissingFields.includes("Mensaje") || importLeadAttachments.length ? (
             <Textarea
               rows={4}
-              placeholder={language === "es" ? "Que reporto el cliente?" : "What did the customer report?"}
+              placeholder={
+                importLeadAttachments.length
+                  ? language === "es"
+                    ? "Nota rapida (opcional)"
+                    : "Quick note (optional)"
+                  : language === "es"
+                    ? "Que reporto el cliente?"
+                    : "What did the customer report?"
+              }
               value={importLeadDraft.customerMessage}
               onChange={(event) => setImportLeadDraft((prev) => ({ ...prev, customerMessage: event.target.value }))}
             />
-          ) : (
+          ) : importLeadDraft.customerMessage ? (
             <div className="rounded-[20px] border border-[var(--wa-divider)] bg-[var(--wa-bg-app)] px-4 py-3 text-sm leading-6 text-[var(--wa-text-secondary)]">
               {importLeadDraft.customerMessage}
             </div>
-          )}
+          ) : null}
           {importLeadAttachments.length ? (
             <p className="text-xs text-[var(--wa-text-secondary)]">
               {language === "es"
@@ -2390,7 +2594,15 @@ export function ChatLayout() {
           />
           <Textarea
             rows={5}
-            placeholder={language === "es" ? "Mensaje del cliente o resumen de la nota de voz" : "Customer message or voice note summary"}
+            placeholder={
+              triageAttachments.length
+                ? language === "es"
+                  ? "Nota rapida sobre la captura (opcional)"
+                  : "Quick note about the screenshot (optional)"
+                : language === "es"
+                  ? "Mensaje del cliente o resumen de la nota de voz"
+                  : "Customer message or voice note summary"
+            }
             value={triageDraft.customerMessage}
             onChange={(event) => setTriageDraft((prev) => ({ ...prev, customerMessage: event.target.value }))}
           />
@@ -2411,6 +2623,18 @@ export function ChatLayout() {
           ) : null}
         </div>
       </Modal>
+
+      <input
+        ref={screenshotInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0] ?? null;
+          event.currentTarget.value = "";
+          void handleOpenScreenshotIntake(file);
+        }}
+      />
     </main>
   );
 }
